@@ -1,0 +1,10 @@
+# Database — contains personal parishioner data, never commit
+*.sqlite
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
