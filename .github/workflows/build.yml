@@ -1,0 +1,37 @@
+name: Build Windows EXE
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install PyQt6 openpyxl pyinstaller
+
+      - name: Build with PyInstaller
+        run: >
+          pyinstaller
+          --noconsole
+          --onedir
+          --name church_app
+          --add-data "arrow_down.svg;."
+          church_app.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: church_app-windows-${{ github.ref_name }}
+          path: dist/

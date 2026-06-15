@@ -1,0 +1,40 @@
+name: Build macOS App
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install PyQt6 openpyxl pyinstaller
+
+      - name: Build with PyInstaller
+        run: >
+          pyinstaller
+          --windowed
+          --onedir
+          --name church_app
+          --add-data "arrow_down.svg:."
+          church_app.py
+
+      - name: Zip app bundle
+        run: zip -r church_app-mac.zip dist/church_app.app
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: church_app-macos-${{ github.ref_name }}
+          path: church_app-mac.zip
