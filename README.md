@@ -35,7 +35,7 @@ Supports registration, sacrament records, household grouping, move-in/out histor
 
 #### 1. Clone or copy the project folder
 
-Make sure `church_registry.sqlite` is placed in the same folder as the Python files.
+Make sure `test_db.sqlite` is placed in the same folder as the Python files.
 
 #### 2. Install dependencies
 
@@ -58,19 +58,19 @@ If multiple `.sqlite` files are present, a warning is shown at startup and the f
 
 ### 💾 Database Backup
 
-The entire database is a single file: `church_registry.sqlite`.
+The entire database is a single file: `test_db.sqlite`.
 Copying this file is all that is needed to create a backup.
 
 **Manual backup (Terminal):**
 
 ```sh
-cp church_registry.sqlite "church_registry_$(date +%Y%m%d).sqlite"
+cp test_db.sqlite "test_db_$(date +%Y%m%d).sqlite"
 ```
 
-Example output: `church_registry_20260614.sqlite`
+Example output: `test_db_20260614.sqlite`
 
 **Recommendations:**
 
 - Back up after any significant data entry session.
 - Store backup files in a separate location (external drive, iCloud, Google Drive, etc.).
-- To restore, rename the backup file to `church_registry.sqlite` and replace the file in the project folder.
+- To restore, rename the backup file to `test_db.sqlite` and replace the file in the project folder.

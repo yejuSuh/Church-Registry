@@ -53,16 +53,16 @@ jobs:
 
             ### 🖥 Windows 설치 방법
             1. `church_app_windows.zip`을 다운로드하여 압축 해제합니다.
-            2. `church_app` 폴더 안에 `church_registry.sqlite` 데이터베이스 파일을 넣습니다.
+            2. `church_app` 폴더 안에 `test_db.sqlite` 데이터베이스 파일을 넣습니다.
             3. `church_app.exe`를 더블클릭하여 실행합니다.
             > Windows SmartScreen 경고가 뜨면 "추가 정보" → "실행"을 클릭하세요.
 
             ### 🍎 macOS 설치 방법
             1. `church_app_mac.zip`을 다운로드하여 압축 해제합니다.
-            2. `church_app.app` 옆에 `church_registry.sqlite` 데이터베이스 파일을 넣습니다.
+            2. `church_app.app` 옆에 `test_db.sqlite` 데이터베이스 파일을 넣습니다.
             3. `church_app.app`을 더블클릭하여 실행합니다.
 
             ### ⚠️ 주의사항
-            - 데이터베이스 파일(`church_registry.sqlite`)은 배포 파일에 포함되어 있지 않습니다. 별도로 관리하세요.
+            - 데이터베이스 파일(`test_db.sqlite`)은 배포 파일에 포함되어 있지 않습니다. 별도로 관리하세요.
             - 업데이트 시 새 버전을 덮어쓰고 기존 데이터베이스 파일을 유지하면 됩니다.
           files: church_app_windows.zip

@@ -4,7 +4,7 @@ APP_TITLE  = "보스톤 한인 천주교 | 교적 관리 시스템"
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 SQLITE_FILES = sorted(f for f in os.listdir(_DIR) if f.endswith(".sqlite"))
-DB_PATH      = os.path.join(_DIR, SQLITE_FILES[0]) if SQLITE_FILES else os.path.join(_DIR, "church_registry.sqlite")
+DB_PATH      = os.path.join(_DIR, SQLITE_FILES[0]) if SQLITE_FILES else os.path.join(_DIR, "test_db.sqlite")
 _ARROW_SVG = os.path.join(_DIR, "arrow_down.svg").replace("\\", "/")
 
 C = dict(

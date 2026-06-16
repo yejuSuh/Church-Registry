@@ -18,7 +18,7 @@ if __name__ == "__main__":
     if not os.path.exists(DB_PATH):
         QMessageBox.critical(
             None, "오류",
-            f"데이터베이스 파일을 찾을 수 없습니다:\n{DB_PATH}\n\nchurch_registry.sqlite 를 같은 폴더에 놓아주세요.",
+            f"데이터베이스 파일을 찾을 수 없습니다:\n{DB_PATH}\n\ntest_db.sqlite 를 같은 폴더에 놓아주세요.",
         )
         sys.exit(1)
     win = MainWindow(DB(DB_PATH))
