@@ -1,5 +1,7 @@
-# Database — contains personal parishioner data, never commit
+# Database files — production data should never be committed
 *.sqlite
+# Allow the bundled test database to be tracked
+!test_db.sqlite
 
 # Python
 __pycache__/
