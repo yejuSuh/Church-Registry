@@ -284,8 +284,16 @@ class DetailPanel(QWidget):
         nl.setStyleSheet("font-size:17px;font-weight:bold;")
         sl = QLabel(f"교적번호: {v('parishioner_no')}  |  관계: {v('relation')}  |  세대주: {v('host_nm')}")
         sl.setStyleSheet("color:#BDD7EE;font-size:10px;")
+        close_btn = QPushButton("✕")
+        close_btn.setFixedSize(24, 24)
+        close_btn.setStyleSheet(
+            "QPushButton{background:transparent;color:white;font-size:14px;"
+            "border:none;border-radius:4px;padding:0;}"
+            "QPushButton:hover{background:rgba(255,255,255,0.2);}"
+        )
+        close_btn.clicked.connect(self.show_empty)
         info_col = QVBoxLayout(); info_col.addWidget(nl); info_col.addWidget(sl)
-        hl.addLayout(info_col); hl.addStretch()
+        hl.addLayout(info_col); hl.addStretch(); hl.addWidget(close_btn, 0, Qt.AlignmentFlag.AlignTop)
         self._l.addWidget(hdr)
 
         bb = QWidget(); bb.setObjectName("detail_btnbar"); bb.setFixedHeight(46)
