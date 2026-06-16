@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -30,8 +33,36 @@ jobs:
           --add-data "arrow_down.svg;."
           church_app.py
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Zip build output
+        run: Compress-Archive -Path dist\church_app -DestinationPath church_app_windows.zip
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: church_app-windows-${{ github.ref_name }}
-          path: dist/
+          name: ${{ github.ref_name }}
+          draft: false
+          body: |
+            ## 보스톤 한인 천주교 교적 관리 시스템 — ${{ github.ref_name }}
+
+            ### 📥 다운로드 안내
+
+            | 파일 | 운영체제 |
+            |------|----------|
+            | `church_app_windows.zip` | Windows 10 / 11 |
+            | `church_app_mac.zip` | macOS 12 이상 |
+
+            ### 🖥 Windows 설치 방법
+            1. `church_app_windows.zip`을 다운로드하여 압축 해제합니다.
+            2. `church_app` 폴더 안에 `church_registry.sqlite` 데이터베이스 파일을 넣습니다.
+            3. `church_app.exe`를 더블클릭하여 실행합니다.
+            > Windows SmartScreen 경고가 뜨면 "추가 정보" → "실행"을 클릭하세요.
+
+            ### 🍎 macOS 설치 방법
+            1. `church_app_mac.zip`을 다운로드하여 압축 해제합니다.
+            2. `church_app.app` 옆에 `church_registry.sqlite` 데이터베이스 파일을 넣습니다.
+            3. `church_app.app`을 더블클릭하여 실행합니다.
+
+            ### ⚠️ 주의사항
+            - 데이터베이스 파일(`church_registry.sqlite`)은 배포 파일에 포함되어 있지 않습니다. 별도로 관리하세요.
+            - 업데이트 시 새 버전을 덮어쓰고 기존 데이터베이스 파일을 유지하면 됩니다.
+          files: church_app_windows.zip
