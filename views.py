@@ -140,7 +140,7 @@ class ParishionerForm(QDialog):
 
         grid.addWidget(shdr("상태 플래그"), r, 0, 1, 4); r += 1
         self.etemal_cb = mk_check("영원한 교적", ev("etemal"))
-        self.duty_cb   = mk_check("의무금 납부",  ev("money_duty_flag"))
+        self.duty_cb   = mk_check("교무금 납부",  ev("money_duty_flag"))
         self.lazy_cb   = mk_check("냉담자",       ev("lazy_flag"))
         self.alone_cb  = mk_check("독거",         ev("alone_flag"))
         fw = QWidget(); fw.setObjectName("card")
@@ -347,7 +347,7 @@ class DetailPanel(QWidget):
 
         flags = []
         if v("etemal") == "Y":          flags.append("✅ 영원한 교적")
-        if v("money_duty_flag") == "Y": flags.append("💰 의무금")
+        if v("money_duty_flag") == "Y": flags.append("💰 교무금")
         if v("lazy_flag") == "Y":       flags.append("😴 냉담자")
         if v("alone_flag") == "Y":      flags.append("🏠 독거")
         if v("delete_flag") == "Y":     flags.append("🗑 삭제됨")
@@ -751,7 +751,7 @@ class MoveRecordsTab(QWidget):
             ("구역",      f"{area_code}  {area_name}" if area_name else area_code),
             ("이전 교구", fv(rec, "pre_parish_nm")),
             ("이전 성당", fv(rec, "pre_parish_church")),
-            ("의무금",    duty_str),
+            ("교무금",    duty_str),
         ]
         lay.addWidget(self._record_card(pairs))
 
@@ -772,7 +772,7 @@ class MoveRecordsTab(QWidget):
                 ("전출일",  fv(rec, "moveout_date")),
                 ("새 교구", fv(rec, "new_parish_nm")),
                 ("새 성당", fv(rec, "new_parish_church")),
-                ("의무금",  duty_str),
+                ("교무금",  duty_str),
             ]
             lay.addWidget(self._record_card(pairs))
 
@@ -799,88 +799,118 @@ class ExportDialog(QDialog):
     HEADERS = ["교적번호", "이름", "세례명", "관계", "세대주", "전화번호", "주소", "등록일"]
     FIELDS  = ["parishioner_no", "name", "baptism_nm", "relation",
                "host_nm", "tel_home", "address", "registion_date"]
+    # landscape A4 usable width ≈ 762 pts (842 − 2×40 margins)
+    COL_W   = [82, 65, 65, 45, 70, 88, 275, 72]
 
     def __init__(self, parent, rows):
         super().__init__(parent)
         self.rows = rows
-        self.setWindowTitle("목록 내보내기")
-        self.resize(360, 150)
+        self.setWindowTitle("PDF 내보내기")
+        self.resize(320, 130)
         self.setModal(True)
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(20, 16, 20, 16)
         lay.setSpacing(12)
 
-        info = QLabel(f"현재 표시된 교적 {len(rows)}명을 내보냅니다.")
+        info = QLabel(f"현재 표시된 교적 {len(rows)}명을 PDF로 저장합니다.")
         info.setObjectName("fv")
         lay.addWidget(info)
 
         btn_row = QHBoxLayout(); btn_row.setSpacing(8)
-        csv_btn  = mk_btn("CSV (.csv)",    "btn_accent")
-        xlsx_btn = mk_btn("Excel (.xlsx)", "btn_success")
-        csv_btn.clicked.connect(self._export_csv)
-        xlsx_btn.clicked.connect(self._export_xlsx)
-        btn_row.addWidget(csv_btn); btn_row.addWidget(xlsx_btn)
-        lay.addLayout(btn_row)
-
-        cancel = mk_btn("취소", "btn_muted")
+        pdf_btn = mk_btn("PDF 저장", "btn_accent")
+        pdf_btn.clicked.connect(self._export_pdf)
+        cancel  = mk_btn("취소", "btn_muted")
         cancel.clicked.connect(self.reject)
-        lay.addWidget(cancel)
+        btn_row.addWidget(pdf_btn); btn_row.addWidget(cancel)
+        lay.addLayout(btn_row)
 
     def _values(self):
         return [[str(r[f] or "").strip() for f in self.FIELDS] for r in self.rows]
 
-    def _export_csv(self):
-        import csv
-        path, _ = QFileDialog.getSaveFileName(
-            self, "CSV로 저장", "교적목록.csv", "CSV Files (*.csv)")
-        if not path:
-            return
-        try:
-            with open(path, "w", newline="", encoding="utf-8-sig") as f:
-                w = csv.writer(f)
-                w.writerow(self.HEADERS)
-                w.writerows(self._values())
-            QMessageBox.information(self, "완료", f"저장 완료:\n{path}")
-            self.accept()
-        except Exception as e:
-            QMessageBox.critical(self, "오류", str(e))
+    @staticmethod
+    def _korean_font():
+        import platform
+        candidates = {
+            'Darwin':  [
+                '/System/Library/Fonts/Supplemental/AppleGothic.ttf',
+                '/Library/Fonts/AppleGothic.ttf',
+                '/System/Library/Fonts/AppleSDGothicNeo.ttc',
+            ],
+            'Windows': [
+                'C:/Windows/Fonts/malgun.ttf',
+                'C:/Windows/Fonts/gulim.ttc',
+            ],
+        }
+        for path in candidates.get(platform.system(), []):
+            if os.path.exists(path):
+                return path
+        return None
 
-    def _export_xlsx(self):
+    def _export_pdf(self):
         try:
-            import openpyxl
-            from openpyxl.styles import Font, PatternFill, Alignment
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.lib.pagesizes import A4, landscape
+            from reportlab.lib import colors
+            from reportlab.lib.styles import ParagraphStyle
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.ttfonts import TTFont
         except ImportError:
-            QMessageBox.critical(
-                self, "오류",
-                "openpyxl이 설치되지 않았습니다.\n터미널에서 실행하세요: pip install openpyxl")
+            QMessageBox.critical(self, "오류",
+                "reportlab이 설치되지 않았습니다.\n터미널에서 실행하세요: pip install reportlab")
             return
 
+        font_name = "Helvetica"
+        font_path = self._korean_font()
+        if font_path:
+            try:
+                pdfmetrics.registerFont(TTFont("Korean", font_path))
+                font_name = "Korean"
+            except Exception:
+                pass
+
         path, _ = QFileDialog.getSaveFileName(
-            self, "Excel로 저장", "교적목록.xlsx", "Excel Files (*.xlsx)")
+            self, "PDF로 저장", "교적목록.pdf", "PDF Files (*.pdf)")
         if not path:
             return
         try:
-            wb = openpyxl.Workbook()
-            ws = wb.active
-            ws.title = "교적 목록"
+            doc = SimpleDocTemplate(
+                path, pagesize=landscape(A4),
+                leftMargin=40, rightMargin=40, topMargin=30, bottomMargin=30,
+            )
 
-            ws.append(self.HEADERS)
-            header_fill = PatternFill("solid", fgColor="2D4A6A")
-            for cell in ws[1]:
-                cell.font = Font(bold=True, color="FFFFFF", size=11)
-                cell.fill = header_fill
-                cell.alignment = Alignment(horizontal="center", vertical="center")
-            ws.row_dimensions[1].height = 20
+            title_style = ParagraphStyle(
+                "t", fontName=font_name, fontSize=13,
+                textColor=colors.HexColor("#2D4A6A"), spaceAfter=6,
+            )
+            elements = [
+                Paragraph("보스톤 한인 천주교  |  교적 목록", title_style),
+                Spacer(1, 4),
+            ]
 
-            for row in self._values():
-                ws.append(row)
+            data   = [self.HEADERS] + self._values()
+            cmds   = [
+                ("FONTNAME",      (0, 0), (-1, -1), font_name),
+                ("FONTSIZE",      (0, 0), (-1,  0), 9),
+                ("FONTSIZE",      (0, 1), (-1, -1), 8),
+                ("BACKGROUND",    (0, 0), (-1,  0), colors.HexColor("#2D4A6A")),
+                ("TEXTCOLOR",     (0, 0), (-1,  0), colors.white),
+                ("ALIGN",         (0, 0), (-1,  0), "CENTER"),
+                ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING",    (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 5),
+                ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#D0D8E4")),
+            ]
+            for i in range(1, len(data)):
+                bg = colors.HexColor("#F8FAFC") if i % 2 == 0 else colors.white
+                cmds.append(("BACKGROUND", (0, i), (-1, i), bg))
 
-            for col in ws.columns:
-                width = max(len(str(c.value or "")) for c in col)
-                ws.column_dimensions[col[0].column_letter].width = min(width + 4, 40)
+            tbl = Table(data, colWidths=self.COL_W, repeatRows=1)
+            tbl.setStyle(TableStyle(cmds))
+            elements.append(tbl)
 
-            wb.save(path)
+            doc.build(elements)
             QMessageBox.information(self, "완료", f"저장 완료:\n{path}")
             self.accept()
         except Exception as e:
