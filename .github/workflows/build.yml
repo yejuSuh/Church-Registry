@@ -22,7 +22,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install PyQt6 reportlab pyinstaller
+        run: pip install PyQt6 reportlab bcrypt pyinstaller
 
       - name: Build with PyInstaller
         run: >

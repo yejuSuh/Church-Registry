@@ -1,14 +1,83 @@
 import sqlite3
+from datetime import datetime
 
 
 class DB:
     def __init__(self, path):
         self.path = path
+        self._init_users()
 
     def _conn(self):
         c = sqlite3.connect(self.path)
         c.row_factory = sqlite3.Row
         return c
+
+    def _init_users(self):
+        with self._conn() as c:
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS app_users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    user_level TEXT NOT NULL DEFAULT 'staff',
+                    created_at TEXT,
+                    last_login TEXT,
+                    is_active INTEGER DEFAULT 1
+                )
+            """)
+            c.commit()
+            count = c.execute("SELECT COUNT(*) FROM app_users").fetchone()[0]
+            if count == 0:
+                self.create_user("admin", "admin1234", "관리자", "admin")
+
+    # ── User / auth methods ──────────────────────────────────────────────────
+
+    def get_user(self, username):
+        with self._conn() as c:
+            return c.execute(
+                "SELECT * FROM app_users WHERE username=? AND is_active=1",
+                (username,),
+            ).fetchone()
+
+    def verify_login(self, username, password):
+        import bcrypt
+        user = self.get_user(username)
+        if not user:
+            return None
+        if bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
+            return user
+        return None
+
+    def create_user(self, username, password, name, user_level="staff"):
+        import bcrypt
+        pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with self._conn() as c:
+            c.execute(
+                "INSERT INTO app_users (username, password_hash, name, user_level, created_at)"
+                " VALUES (?,?,?,?,?)",
+                (username, pw_hash, name, user_level, now),
+            )
+            c.commit()
+
+    def update_last_login(self, username):
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with self._conn() as c:
+            c.execute(
+                "UPDATE app_users SET last_login=? WHERE username=?",
+                (now, username),
+            )
+            c.commit()
+
+    def list_users(self):
+        with self._conn() as c:
+            return c.execute(
+                "SELECT id, username, name, user_level, created_at, last_login, is_active"
+                " FROM app_users ORDER BY id"
+            ).fetchall()
+
+    # ── Parishioner queries ──────────────────────────────────────────────────
 
     def search(self, q="", area="", deleted=False):
         sql = ("SELECT parishioner_no, TRIM(name) name, TRIM(baptism_nm) baptism_nm,"
