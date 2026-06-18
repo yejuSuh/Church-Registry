@@ -14,6 +14,7 @@ from parishioner_form import ParishionerForm
 from detail_panel import DetailPanel
 from list_view import ListView
 from stats_view import StatsView
+from user_mgmt_view import UserMgmtView
 
 
 class MainWindow(QMainWindow):
@@ -48,6 +49,14 @@ class MainWindow(QMainWindow):
             nb.setCursor(Qt.CursorShape.PointingHandCursor)
             sbl.addWidget(nb)
 
+        # admin-only nav
+        self.nav_users = None
+        if session.user_level == "admin":
+            self.nav_users = QPushButton("👤  계정 관리")
+            self.nav_users.setObjectName("nav_btn")
+            self.nav_users.setCursor(Qt.CursorShape.PointingHandCursor)
+            sbl.addWidget(self.nav_users)
+
         sbl.addSpacing(12)
         self._count_lbl = QLabel()
         self._count_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -55,7 +64,7 @@ class MainWindow(QMainWindow):
         sbl.addWidget(self._count_lbl)
 
         sbl.addStretch()
-        user_lbl = QLabel(f"👤 {session.name} ({session.user_level})")
+        user_lbl = QLabel(f"👤 {session.name} ({session.baptism_name})")
         user_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         user_lbl.setStyleSheet("font-size:10px;color:#8EAFD4;background:transparent;")
         user_lbl.setWordWrap(True)
@@ -71,6 +80,7 @@ class MainWindow(QMainWindow):
         # ── Main stack ───────────────────────────────────────────────────────
         self.stack = QStackedWidget(); rl.addWidget(self.stack, 1)
 
+        # index 0 — parishioner list + detail
         self.list_view   = ListView(db)
         self.detail_view = DetailPanel(db)
         sp = QSplitter(Qt.Orientation.Horizontal)
@@ -81,12 +91,19 @@ class MainWindow(QMainWindow):
         lpl.addWidget(sp)
         self.stack.addWidget(lp)
 
+        # index 1 — stats
         self.stats_view = StatsView(db)
         self.stack.addWidget(self.stats_view)
+
+        # index 2 — user management (always in stack; nav only visible to admins)
+        self.user_mgmt_view = UserMgmtView(db)
+        self.stack.addWidget(self.user_mgmt_view)
 
         # ── Signals ──────────────────────────────────────────────────────────
         self.nav_list.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         self.nav_stats.clicked.connect(lambda: self.stack.setCurrentIndex(1))
+        if self.nav_users:
+            self.nav_users.clicked.connect(lambda: self._open_user_mgmt())
         self.list_view.add_btn.clicked.connect(self._add)
         self.list_view.row_selected.connect(self.detail_view.load)
         self.detail_view.edit_sig.connect(self._edit)
@@ -108,6 +125,12 @@ class MainWindow(QMainWindow):
         self._reload()
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+
+    def _open_user_mgmt(self):
+        if session.user_level != "admin":
+            return
+        self.user_mgmt_view._load()   # refresh data each time
+        self.stack.setCurrentIndex(2)
 
     def _reload(self):
         self.list_view.load()
@@ -148,7 +171,7 @@ class MainWindow(QMainWindow):
         ParishionerForm(self, self.db, prefill_host=host, prefill_area=area, on_save=refresh).exec()
 
     def _perm_delete(self, pno):
-        msg = (f"교적을 영구적으로 삭제하시겠습니까?\n{pno}\n\n이 작업은 되돌릴 수 없습니다.")
+        msg = f"교적을 영구적으로 삭제하시겠습니까?\n{pno}\n\n이 작업은 되돌릴 수 없습니다."
         if QMessageBox.question(self, "영구 삭제 확인", msg) == QMessageBox.StandardButton.Yes:
             self.db.hard_delete(pno)
             self._reload()

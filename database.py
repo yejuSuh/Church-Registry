@@ -20,24 +20,28 @@ class DB:
                     username TEXT NOT NULL UNIQUE,
                     password_hash TEXT NOT NULL,
                     name TEXT NOT NULL,
+                    baptism_name TEXT NOT NULL DEFAULT '—',
                     user_level TEXT NOT NULL DEFAULT 'staff',
                     created_at TEXT,
                     last_login TEXT,
                     is_active INTEGER DEFAULT 1
                 )
             """)
+            # migrate: add baptism_name column if the table predates this schema
+            try:
+                c.execute("ALTER TABLE app_users ADD COLUMN baptism_name TEXT NOT NULL DEFAULT '—'")
+            except sqlite3.OperationalError:
+                pass
             c.commit()
-            count = c.execute("SELECT COUNT(*) FROM app_users").fetchone()[0]
-            if count == 0:
-                self.create_user("admin", "admin1234", "관리자", "admin")
+            if c.execute("SELECT COUNT(*) FROM app_users").fetchone()[0] == 0:
+                self.create_user("admin", "admin1234", "관리자", "—", "admin")
 
     # ── User / auth methods ──────────────────────────────────────────────────
 
     def get_user(self, username):
         with self._conn() as c:
             return c.execute(
-                "SELECT * FROM app_users WHERE username=? AND is_active=1",
-                (username,),
+                "SELECT * FROM app_users WHERE username=?", (username,)
             ).fetchone()
 
     def verify_login(self, username, password):
@@ -46,36 +50,92 @@ class DB:
         if not user:
             return None
         if bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
-            return user
+            return user   # caller checks user["is_active"]
         return None
 
-    def create_user(self, username, password, name, user_level="staff"):
+    def username_exists(self, username):
+        with self._conn() as c:
+            return c.execute(
+                "SELECT 1 FROM app_users WHERE username=?", (username,)
+            ).fetchone() is not None
+
+    def create_user(self, username, password, name, baptism_name="—", user_level="staff"):
         import bcrypt
         pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self._conn() as c:
             c.execute(
-                "INSERT INTO app_users (username, password_hash, name, user_level, created_at)"
-                " VALUES (?,?,?,?,?)",
-                (username, pw_hash, name, user_level, now),
+                "INSERT INTO app_users"
+                " (username, password_hash, name, baptism_name, user_level, created_at)"
+                " VALUES (?,?,?,?,?,?)",
+                (username, pw_hash, name, baptism_name, user_level, now),
             )
             c.commit()
+
+    def update_user(self, username, name, baptism_name, user_level, password=None):
+        if password:
+            import bcrypt
+            pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+            with self._conn() as c:
+                c.execute(
+                    "UPDATE app_users SET name=?, baptism_name=?, user_level=?, password_hash=?"
+                    " WHERE username=?",
+                    (name, baptism_name, user_level, pw_hash, username),
+                )
+                c.commit()
+        else:
+            with self._conn() as c:
+                c.execute(
+                    "UPDATE app_users SET name=?, baptism_name=?, user_level=? WHERE username=?",
+                    (name, baptism_name, user_level, username),
+                )
+                c.commit()
+
+    def update_user_level(self, username, new_level):
+        with self._conn() as c:
+            c.execute(
+                "UPDATE app_users SET user_level=? WHERE username=?", (new_level, username)
+            )
+            c.commit()
+
+    def deactivate_user(self, username):
+        with self._conn() as c:
+            c.execute("UPDATE app_users SET is_active=0 WHERE username=?", (username,))
+            c.commit()
+
+    def activate_user(self, username):
+        with self._conn() as c:
+            c.execute("UPDATE app_users SET is_active=1 WHERE username=?", (username,))
+            c.commit()
+
+    def delete_user(self, username):
+        with self._conn() as c:
+            target = c.execute(
+                "SELECT user_level FROM app_users WHERE username=?", (username,)
+            ).fetchone()
+            if target and target["user_level"] == "admin":
+                admin_count = c.execute(
+                    "SELECT COUNT(*) FROM app_users WHERE user_level='admin'"
+                ).fetchone()[0]
+                if admin_count <= 1:
+                    return False   # block deleting the last admin
+            c.execute("DELETE FROM app_users WHERE username=?", (username,))
+            c.commit()
+        return True
+
+    def list_users(self):
+        with self._conn() as c:
+            return c.execute(
+                "SELECT * FROM app_users ORDER BY user_level, username"
+            ).fetchall()
 
     def update_last_login(self, username):
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self._conn() as c:
             c.execute(
-                "UPDATE app_users SET last_login=? WHERE username=?",
-                (now, username),
+                "UPDATE app_users SET last_login=? WHERE username=?", (now, username)
             )
             c.commit()
-
-    def list_users(self):
-        with self._conn() as c:
-            return c.execute(
-                "SELECT id, username, name, user_level, created_at, last_login, is_active"
-                " FROM app_users ORDER BY id"
-            ).fetchall()
 
     # ── Parishioner queries ──────────────────────────────────────────────────
 
@@ -233,7 +293,7 @@ class DB:
                 (pno,),
             ).fetchall()
 
-    # ── Sacrament records ────────────────────────────────────────────────────
+    # ── Sacrament write methods ──────────────────────────────────────────────
 
     def create_baptism(self, data):
         cols = list(data.keys())

@@ -1,6 +1,7 @@
 class Session:
-    username   = ""
-    name       = ""
-    user_level = ""
+    username     = ""
+    name         = ""
+    baptism_name = ""
+    user_level   = ""
 
 session = Session()
