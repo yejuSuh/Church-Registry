@@ -1,0 +1,84 @@
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QScrollArea, QFrame,
+    QLabel, QGridLayout,
+)
+
+from constants import C, AREA_MAP
+from ui_helpers import fv, shdr
+
+
+class MoveRecordsTab(QWidget):
+    def __init__(self, db, pno):
+        super().__init__()
+        self.db = db; self.pno = pno
+        outer = QVBoxLayout(self); outer.setContentsMargins(0, 0, 0, 0); outer.setSpacing(0)
+        scroll = QScrollArea(); scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        outer.addWidget(scroll, 1)
+
+        body = QWidget(); body.setObjectName("card")
+        lay = QVBoxLayout(body); lay.setContentsMargins(12, 8, 12, 16); lay.setSpacing(10)
+        self._build_movein(lay)
+        self._build_moveout(lay)
+        lay.addStretch()
+        scroll.setWidget(body)
+
+    def _build_movein(self, lay):
+        lay.addWidget(shdr("📥  전입 기록"))
+        rec = self.db.get_movein_record(self.pno)
+        if not rec:
+            lbl = QLabel("  기록 없음"); lbl.setObjectName("mu"); lay.addWidget(lbl); return
+
+        area_code = fv(rec, "area_no").strip()
+        area_name = AREA_MAP.get(area_code, area_code)
+        duty = fv(rec, "duty_money")
+        try:
+            duty_str = f"{float(duty):,.0f} 원" if duty else ""
+        except ValueError:
+            duty_str = duty
+
+        pairs = [
+            ("전입일",    fv(rec, "movein_date")),
+            ("구역",      f"{area_code}  {area_name}" if area_name else area_code),
+            ("이전 교구", fv(rec, "pre_parish_nm")),
+            ("이전 성당", fv(rec, "pre_parish_church")),
+            ("교무금",    duty_str),
+        ]
+        lay.addWidget(self._record_card(pairs))
+
+    def _build_moveout(self, lay):
+        lay.addWidget(shdr("📤  전출 기록"))
+        records = self.db.get_moveout_records(self.pno)
+        if not records:
+            lbl = QLabel("  기록 없음"); lbl.setObjectName("mu"); lay.addWidget(lbl); return
+
+        for rec in records:
+            duty = fv(rec, "duty_money")
+            try:
+                duty_str = f"{float(duty):,.0f} 원" if duty else ""
+            except ValueError:
+                duty_str = duty
+
+            pairs = [
+                ("전출일",  fv(rec, "moveout_date")),
+                ("새 교구", fv(rec, "new_parish_nm")),
+                ("새 성당", fv(rec, "new_parish_church")),
+                ("교무금",  duty_str),
+            ]
+            lay.addWidget(self._record_card(pairs))
+
+    def _record_card(self, pairs):
+        pairs = [(l, v) for l, v in pairs if v and v not in ("—", "")]
+        card = QWidget()
+        card.setStyleSheet(f"background:{C['header']};border-radius:4px;")
+        g = QGridLayout(card); g.setContentsMargins(10, 6, 10, 6)
+        g.setHorizontalSpacing(12); g.setVerticalSpacing(3)
+        g.setColumnStretch(1, 2); g.setColumnStretch(3, 2)
+        row, col = 0, 0
+        for lbl_txt, val_txt in pairs:
+            lw = QLabel(lbl_txt); lw.setObjectName("fl")
+            vw = QLabel(val_txt); vw.setObjectName("fv"); vw.setWordWrap(True)
+            g.addWidget(lw, row, col * 2); g.addWidget(vw, row, col * 2 + 1)
+            col += 1
+            if col >= 2: col = 0; row += 1
+        return card
