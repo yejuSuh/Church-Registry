@@ -10,8 +10,7 @@ else:
     # Running as a plain Python script
     _DIR = os.path.dirname(os.path.abspath(__file__))
 
-SQLITE_FILES = sorted(f for f in os.listdir(_DIR) if f.endswith(".sqlite"))
-DB_PATH      = os.path.join(_DIR, SQLITE_FILES[0]) if SQLITE_FILES else os.path.join(_DIR, "test_db.sqlite")
+DB_PATH = os.path.join(_DIR, "parish.db")
 _ARROW_SVG   = os.path.join(_DIR, "arrow_down.svg").replace("\\", "/")
 
 C = dict(

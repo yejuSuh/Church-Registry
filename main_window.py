@@ -108,7 +108,6 @@ class MainWindow(QMainWindow):
         self.list_view.row_selected.connect(self.detail_view.load)
         self.detail_view.edit_sig.connect(self._edit)
         self.detail_view.delete_sig.connect(self._delete)
-        self.detail_view.perm_delete_sig.connect(self._perm_delete)
         self.detail_view.add_sig.connect(self._add_member)
 
         # ── Keyboard shortcuts ────────────────────────────────────────────────
@@ -170,25 +169,9 @@ class MainWindow(QMainWindow):
             self.detail_view.load(ref_pno)
         ParishionerForm(self, self.db, prefill_host=host, prefill_area=area, on_save=refresh).exec()
 
-    def _perm_delete(self, pno):
-        msg = f"교적을 영구적으로 삭제하시겠습니까?\n{pno}\n\n이 작업은 되돌릴 수 없습니다."
-        if QMessageBox.question(self, "영구 삭제 확인", msg) == QMessageBox.StandardButton.Yes:
+    def _delete(self, pno):
+        msg = f"교적을 삭제하시겠습니까?\n{pno}\n\n이 작업은 되돌릴 수 없습니다."
+        if QMessageBox.question(self, "삭제 확인", msg) == QMessageBox.StandardButton.Yes:
             self.db.hard_delete(pno)
             self._reload()
             self.detail_view.show_empty()
-
-    def _delete(self, pno, is_deleted):
-        if is_deleted:
-            if QMessageBox.question(self, "복원 확인", f"교적을 복원하시겠습니까?\n{pno}") \
-                    == QMessageBox.StandardButton.Yes:
-                self.db.restore(pno)
-                self._reload()
-                self.detail_view.load(pno)
-        else:
-            if QMessageBox.question(
-                self, "삭제 확인",
-                f"교적을 삭제하시겠습니까?\n{pno}\n\n나중에 복원할 수 있습니다."
-            ) == QMessageBox.StandardButton.Yes:
-                self.db.soft_delete(pno)
-                self._reload()
-                self.detail_view.show_empty()

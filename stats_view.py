@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from PyQt6.QtCore import Qt
 
-from constants import C, AREA_MAP
+from constants import C
 
 
 class StatsView(QWidget):
@@ -42,13 +42,12 @@ class StatsView(QWidget):
         lay.addSpacing(6)
 
         for i, row in enumerate(s["areas"]):
-            name = AREA_MAP.get(row["area"], row["area"])
             rf = QWidget()
             rf.setStyleSheet(
                 f"background:{C['header'] if i % 2 == 0 else C['card']};border-radius:4px;"
             )
             rl = QHBoxLayout(rf); rl.setContentsMargins(12, 4, 12, 4)
-            la = QLabel(f"{row['area']}  {name}")
+            la = QLabel(row["area"] or "—")
             la.setStyleSheet("font-size:12px;background:transparent;")
             lc = QLabel(f"{row['cnt']}명")
             lc.setStyleSheet(

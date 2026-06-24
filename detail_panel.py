@@ -13,9 +13,8 @@ from move_records_tab import MoveRecordsTab
 
 class DetailPanel(QWidget):
     edit_sig        = pyqtSignal(str)
-    delete_sig      = pyqtSignal(str, bool)
+    delete_sig      = pyqtSignal(str)
     add_sig         = pyqtSignal(str, str)
-    perm_delete_sig = pyqtSignal(str)
 
     def __init__(self, db):
         super().__init__()
@@ -50,14 +49,15 @@ class DetailPanel(QWidget):
         self._clear()
 
         v = lambda k: fv(p, k) or "—"
-        is_del = v("delete_flag") == "Y"
+        is_inactive = bool(p["is_inactive"])
 
         hdr = QWidget(); hdr.setObjectName("detail_hdr"); hdr.setFixedHeight(68)
         hl = QHBoxLayout(hdr); hl.setContentsMargins(16, 8, 16, 8)
-        name_txt = f"{v('name')}  ({v('baptism_nm')})" if v("baptism_nm") != "—" else v("name")
+        bname = v("baptismal_name")
+        name_txt = f"{v('name')}  ({bname})" if bname != "—" else v("name")
         nl = QLabel(name_txt)
         nl.setStyleSheet("font-size:17px;font-weight:bold;")
-        sl = QLabel(f"교적번호: {v('parishioner_no')}  |  관계: {v('relation')}  |  세대주: {v('host_nm')}")
+        sl = QLabel(f"교적번호: {v('member_id')}  |  관계: {v('relation')}  |  세대주: {v('head_of_household')}")
         sl.setStyleSheet("color:#BDD7EE;font-size:10px;")
         close_btn = QPushButton("✕")
         close_btn.setFixedSize(24, 24)
@@ -75,16 +75,11 @@ class DetailPanel(QWidget):
         bbl = QHBoxLayout(bb); bbl.setContentsMargins(8, 6, 8, 6); bbl.setSpacing(6)
         eb     = mk_btn("✏️  수정", "btn_accent")
         ab     = mk_btn("👤+  가족 추가", "btn_success")
-        db_btn = mk_btn("♻️  복원" if is_del else "🗑  삭제",
-                        "btn_accent" if is_del else "btn_danger")
+        db_btn = mk_btn("🗑  삭제", "btn_danger")
         eb.clicked.connect(lambda: self.edit_sig.emit(pno))
-        ab.clicked.connect(lambda: self.add_sig.emit(v("host_nm"), pno))
-        db_btn.clicked.connect(lambda: self.delete_sig.emit(pno, is_del))
+        ab.clicked.connect(lambda: self.add_sig.emit(v("head_of_household"), pno))
+        db_btn.clicked.connect(lambda: self.delete_sig.emit(pno))
         bbl.addWidget(eb); bbl.addWidget(ab); bbl.addWidget(db_btn)
-        if is_del:
-            pd_btn = mk_btn("🗑  영구 삭제", "btn_danger")
-            pd_btn.clicked.connect(lambda: self.perm_delete_sig.emit(pno))
-            bbl.addWidget(pd_btn)
         bbl.addStretch()
         self._l.addWidget(bb)
 
@@ -115,43 +110,27 @@ class DetailPanel(QWidget):
             r += 1
 
         sh("📋  기본 정보")
-        r2("교적번호", v("parishioner_no"), "세례명",    v("baptism_nm"))
-        r2("세대주",   v("host_nm"),        "관계",      v("relation"))
-        r2("생년월일", v("personal_no")[:6] if v("personal_no") != "—" else "—", "축일", v("baptism_day"))
-        r2("등록일",   v("registion_date"), "이전 교구", v("pre_parish_nm"))
+        r2("교적번호", v("member_id"),         "세례명",  v("baptismal_name"))
+        r2("세대주",   v("head_of_household"), "관계",    v("relation"))
+        r2("구역",     v("district"))
 
         flags = []
-        if v("etemal") == "Y":          flags.append("✅ 영원한 교적")
-        if v("money_duty_flag") == "Y": flags.append("💰 교무금")
-        if v("lazy_flag") == "Y":       flags.append("😴 냉담자")
-        if v("alone_flag") == "Y":      flags.append("🏠 독거")
-        if v("delete_flag") == "Y":     flags.append("🗑 삭제됨")
+        if is_inactive:                         flags.append("😴 냉담자")
+        if str(v("dues_paying")).strip() == "Y": flags.append("💰 교무금")
         if flags:
             fl = QLabel("  ".join(flags)); fl.setObjectName("mu")
             grid.addWidget(fl, r, 0, 1, 4); r += 1
 
-        sh("📞  연락처")
-        r2("집 전화",   v("tel_home"),   "휴대폰",  v("tel_hp"))
-        r2("직장 전화", v("tel_office"), "주소",    v("address"))
-        r2("상세 주소", v("address_no"))
+        sh("💰  교무금")
+        r2("납부 여부", v("dues_paying"), "월 교무금", v("monthly_dues"))
+        r2("시작일",    v("dues_start"),  "최근 납부", v("dues_last_paid"))
 
-        sh("✝  세례 정보")
-        r2("세례일",    v("baptism_date"),      "세례번호",  v("baptism_no"))
-        r2("세례 교구", v("baptism_parish_nm"), "세례 성당", v("baptism_church"))
-
-        sh("🕊  견진 정보")
-        r2("견진일", v("sacrament_date"), "견진 교구", v("sacrament_parish_nm"))
-
-        if v("office_nm") != "—" or v("job_kind") != "—":
-            sh("💼  직장")
-            r2("직장명", v("office_nm"), "직종", v("job_kind"))
-
-        if v("personal_memo") != "—":
+        if v("notes") != "—":
             sh("📝  메모")
-            ml = QLabel(v("personal_memo")); ml.setObjectName("fv"); ml.setWordWrap(True)
+            ml = QLabel(v("notes")); ml.setObjectName("fv"); ml.setWordWrap(True)
             grid.addWidget(ml, r, 0, 1, 4); r += 1
 
-        members = self.db.household(v("host_nm"), exclude=pno)
+        members = self.db.household(v("head_of_household"), exclude=pno)
         if members:
             sh(f"👨‍👩‍👧  같은 세대 ({len(members)}명)")
             tbl = QTableWidget(len(members), 4)
@@ -173,7 +152,7 @@ class DetailPanel(QWidget):
             tbl.verticalHeader().setDefaultSectionSize(row_h)
             tbl.setFixedHeight(hdr_h + len(members) * row_h + 2)
             for i, m in enumerate(members):
-                for j, key in enumerate(["name", "baptism_nm", "relation", "parishioner_no"]):
+                for j, key in enumerate(["name", "baptismal_name", "relation", "member_id"]):
                     tbl.setItem(i, j, QTableWidgetItem(str(m[key] or "").strip()))
             grid.addWidget(tbl, r, 0, 1, 4); r += 1
 

@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
 from constants import C
 from ui_helpers import fv, mk_btn, shdr
 from sacrament_forms import (
-    BaptismForm, ConfirmationForm, WeddingForm, ConfessionForm, DeathForm,
+    BaptismForm, ConfirmationForm, WeddingForm, DeathForm,
 )
 
 
@@ -32,42 +32,42 @@ class SacramentsTab(QWidget):
 
         self._section(lay, "✝  세례", self.db.get_baptism_records(self.pno),
             lambda rec: [
-                ("세례번호", fv(rec, "baptism_no")), ("세례일", fv(rec, "baptism_date")),
-                ("세례 성당", fv(rec, "baptism_church")), ("집전자", fv(rec, "officiator_nm")),
-                ("대부/대모", fv(rec, "godfather_nm")), ("부친", fv(rec, "father_nm")),
-                ("모친", fv(rec, "mother_nm")),
+                ("세례번호",   fv(rec, "baptism_no")),
+                ("세례일",     fv(rec, "baptism_date")),
+                ("세례 성당",  fv(rec, "parish")),
+                ("집전자",     fv(rec, "officiant_name")),
+                ("집전자 세례명", fv(rec, "officiant_baptismal_name")),
             ],
             lambda: BaptismForm(self, self.db, self.pno, name, on_save=self.reload).exec())
 
-        self._section(lay, "🕊  견진", self.db.get_sacrament_records(self.pno),
+        self._section(lay, "🕊  견진", self.db.get_confirmation_records(self.pno),
             lambda rec: [
-                ("견진번호", fv(rec, "sacrament_no")), ("견진일", fv(rec, "sacrament_date")),
-                ("견진 성당", fv(rec, "sacrament_parish_church")), ("집전자", fv(rec, "officiator_nm")),
+                ("견진번호",   fv(rec, "confirmation_no")),
+                ("견진일",     fv(rec, "confirmation_date")),
+                ("견진 성당",  fv(rec, "parish")),
+                ("집전자",     fv(rec, "officiant_name")),
             ],
             lambda: ConfirmationForm(self, self.db, self.pno, name, on_save=self.reload).exec())
 
         self._section(lay, "💒  혼인", self.db.get_wedding_records(self.pno),
             lambda rec: [
-                ("혼인번호", fv(rec, "wedding_no")), ("혼인일", fv(rec, "wedding_date")),
-                ("성당", fv(rec, "parish_church")), ("집전자", fv(rec, "officiator_nm")),
-                ("배우자", fv(rec, "w_name") if fv(rec, "m_parishioner_no").strip() == self.pno.strip()
-                           else fv(rec, "m_name")),
+                ("혼인번호", fv(rec, "wedding_no")),
+                ("혼인일",   fv(rec, "wedding_date")),
+                ("형태",     fv(rec, "wedding_type")),
+                ("신랑",     fv(rec, "groom_name")),
+                ("신랑 세례명", fv(rec, "groom_baptismal_name")),
+                ("신부",     fv(rec, "bride_name")),
+                ("신부 세례명", fv(rec, "bride_baptismal_name")),
+                ("집전자",   fv(rec, "officiant_name")),
             ],
             lambda: WeddingForm(self, self.db, self.pno, name, on_save=self.reload).exec())
 
-        self._section(lay, "📖  고해성사", self.db.get_confession_records(self.pno),
-            lambda rec: [
-                ("연도", fv(rec, "confession_year")),
-                ("봄",   "✓" if fv(rec, "spring") == "Y" else "✗"),
-                ("가을", "✓" if fv(rec, "fall")   == "Y" else "✗"),
-            ],
-            lambda: ConfessionForm(self, self.db, self.pno, on_save=self.reload).exec())
-
         self._section(lay, "✟  사망", self.db.get_death_records(self.pno),
             lambda rec: [
-                ("사망일",  fv(rec, "death_date")),    ("장소",   fv(rec, "place")),
-                ("집전자",  fv(rec, "officiator_nm")), ("병자성사", fv(rec, "sickness_date")),
-                ("노자성사", fv(rec, "viaticum_date")),
+                ("사망일",   fv(rec, "death_date")),
+                ("장소",     fv(rec, "cemetery")),
+                ("종부성사",  fv(rec, "last_rites_date")),
+                ("노자성사",  fv(rec, "viaticum_date")),
             ],
             lambda: DeathForm(self, self.db, self.pno, name, on_save=self.reload).exec())
 

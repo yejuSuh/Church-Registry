@@ -1,27 +1,20 @@
-from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QStackedWidget,
-    QLabel, QPushButton, QLineEdit,
-)
+from PyQt6.QtWidgets import QDialog, QLabel, QStackedWidget, QVBoxLayout
 from PyQt6.QtCore import Qt
 
 from constants import C
 from session import session
-
-
-def _link_btn(text):
-    b = QPushButton(text)
-    b.setStyleSheet(
-        f"QPushButton{{border:none;background:transparent;color:{C['accent']};"
-        "text-decoration:underline;font-size:11px;padding:0;}}"
-        f"QPushButton:hover{{color:{C['accent_dk']};}}"
-    )
-    b.setCursor(Qt.CursorShape.PointingHandCursor)
-    return b
+from login_view import (
+    DLG_SS, set_msg,
+    build_login_page, build_signup_page, build_forgot_page,
+)
 
 
 class LoginDialog(QDialog):
-    _LOGIN_H  = 318
-    _SIGNUP_H = 450
+    _LOGIN_H         = 330
+    _SIGNUP_H        = 472
+    _FORGOT_ID_H     = 304   # error label hidden
+    _FORGOT_ID_ERR_H = 344   # error label visible
+    _FORGOT_PW_H     = 512
 
     def __init__(self, db):
         super().__init__()
@@ -30,16 +23,16 @@ class LoginDialog(QDialog):
         self.setModal(True)
         self.setFixedWidth(400)
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.MSWindowsFixedSizeDialogHint)
+        self.setStyleSheet(DLG_SS)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(40, 28, 40, 24)
         outer.setSpacing(0)
 
-        # ── Header (shared) ──────────────────────────────────────────────────
         title = QLabel("교적 관리 시스템")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet(
-            f"font-size:20px;font-weight:bold;color:{C['sidebar']};background:transparent;"
+            f"font-size:22px;font-weight:bold;color:{C['sidebar']};background:transparent;"
         )
         sub = QLabel("보스톤 한인 천주교")
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -48,113 +41,76 @@ class LoginDialog(QDialog):
         outer.addWidget(sub)
         outer.addSpacing(22)
 
-        # ── Mode stack ───────────────────────────────────────────────────────
         self._stack = QStackedWidget()
         outer.addWidget(self._stack)
 
-        self._stack.addWidget(self._build_login_page())
-        self._stack.addWidget(self._build_signup_page())
+        self._setup_login_page()
+        self._setup_signup_page()
+        self._setup_forgot_page()
 
         self._show_login()
 
-    # ── Page builders ────────────────────────────────────────────────────────
+    # ── Page setup (build + wire signals) ────────────────────────────────────
 
-    def _build_login_page(self):
-        page = QStackedWidget.__new__(QStackedWidget)   # use plain QDialog child widget
-        from PyQt6.QtWidgets import QWidget
-        page = QWidget()
-        lay = QVBoxLayout(page)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(8)
-
-        self._user_le = QLineEdit(); self._user_le.setPlaceholderText("아이디")
-        self._user_le.setFixedHeight(36)
-        lay.addWidget(self._user_le)
-
-        self._pw_le = QLineEdit(); self._pw_le.setPlaceholderText("비밀번호")
-        self._pw_le.setEchoMode(QLineEdit.EchoMode.Password)
-        self._pw_le.setFixedHeight(36)
+    def _setup_login_page(self):
+        page, w = build_login_page()
+        self._user_le   = w["user_le"]
+        self._pw_le     = w["pw_le"]
+        self._login_err = w["err"]
+        self._user_le.returnPressed.connect(self._login)
         self._pw_le.returnPressed.connect(self._login)
-        lay.addWidget(self._pw_le)
+        w["login_btn"].clicked.connect(self._login)
+        w["signup_lnk"].clicked.connect(self._show_signup)
+        w["forgot_lnk"].clicked.connect(self._show_forgot)
+        self._stack.addWidget(page)
 
-        self._login_err = QLabel("")
-        self._login_err.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._login_err.setStyleSheet(
-            f"color:{C['danger']};font-size:11px;background:transparent;"
-        )
-        self._login_err.setWordWrap(True)
-        self._login_err.setFixedHeight(30)
-        lay.addWidget(self._login_err)
+    def _setup_signup_page(self):
+        page, w = build_signup_page()
+        self._su_user_le  = w["user_le"]
+        self._su_pw_le    = w["pw_le"]
+        self._su_pw2_le   = w["pw2_le"]
+        self._su_name_le  = w["name_le"]
+        self._su_bname_le = w["bname_le"]
+        self._signup_err  = w["err"]
+        for le in (self._su_user_le, self._su_pw_le, self._su_pw2_le,
+                   self._su_name_le, self._su_bname_le):
+            le.returnPressed.connect(self._signup)
+        w["signup_btn"].clicked.connect(self._signup)
+        w["login_lnk"].clicked.connect(self._show_login)
+        self._stack.addWidget(page)
 
-        login_btn = QPushButton("로그인")
-        login_btn.setObjectName("btn_accent")
-        login_btn.setFixedHeight(38)
-        login_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        login_btn.clicked.connect(self._login)
-        lay.addWidget(login_btn)
+    def _setup_forgot_page(self):
+        page, w = build_forgot_page()
+        self._tab_id_btn   = w["tab_id_btn"]
+        self._tab_pw_btn   = w["tab_pw_btn"]
+        self._forgot_inner = w["inner_stack"]
+        fi, rp             = w["fi"], w["rp"]
 
-        lay.addSpacing(10)
-        link_row = QHBoxLayout()
-        lbl = QLabel("계정이 없으신가요?")
-        lbl.setStyleSheet(f"color:{C['muted']};font-size:11px;background:transparent;")
-        lnk = _link_btn("회원가입")
-        lnk.clicked.connect(self._show_signup)
-        link_row.addStretch(); link_row.addWidget(lbl)
-        link_row.addSpacing(4); link_row.addWidget(lnk); link_row.addStretch()
-        lay.addLayout(link_row)
+        self._fi_name_le  = fi["name_le"]
+        self._fi_bname_le = fi["bname_le"]
+        self._fi_err      = fi["err"]
+        for le in (self._fi_name_le, self._fi_bname_le):
+            le.returnPressed.connect(self._forgot_find_id)
+        fi["btn"].clicked.connect(self._forgot_find_id)
 
-        return page
+        self._rp_user_le  = rp["user_le"]
+        self._rp_name_le  = rp["name_le"]
+        self._rp_bname_le = rp["bname_le"]
+        self._rp_new_le   = rp["new_le"]
+        self._rp_new2_le  = rp["new2_le"]
+        self._rp_err      = rp["err"]
+        for le in (self._rp_user_le, self._rp_name_le, self._rp_bname_le,
+                   self._rp_new_le, self._rp_new2_le):
+            le.returnPressed.connect(self._forgot_reset_pw)
+        rp["btn"].clicked.connect(self._forgot_reset_pw)
 
-    def _build_signup_page(self):
-        from PyQt6.QtWidgets import QWidget
-        page = QWidget()
-        lay = QVBoxLayout(page)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(8)
+        self._tab_id_btn.clicked.connect(lambda: self._switch_forgot_tab(0))
+        self._tab_pw_btn.clicked.connect(lambda: self._switch_forgot_tab(1))
+        w["back_lnk"].clicked.connect(self._show_login)
+        self._stack.addWidget(page)
+        self._switch_forgot_tab(0)
 
-        def field(placeholder, echo=False):
-            le = QLineEdit(); le.setPlaceholderText(placeholder); le.setFixedHeight(36)
-            if echo:
-                le.setEchoMode(QLineEdit.EchoMode.Password)
-            lay.addWidget(le)
-            return le
-
-        self._su_user_le  = field("아이디")
-        self._su_pw_le    = field("비밀번호", echo=True)
-        self._su_pw2_le   = field("비밀번호 확인", echo=True)
-        self._su_name_le  = field("이름")
-        self._su_bname_le = field("세례명")
-        self._su_pw2_le.returnPressed.connect(self._signup)
-
-        self._signup_err = QLabel("")
-        self._signup_err.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._signup_err.setStyleSheet(
-            f"color:{C['danger']};font-size:11px;background:transparent;"
-        )
-        self._signup_err.setWordWrap(True)
-        self._signup_err.setFixedHeight(30)
-        lay.addWidget(self._signup_err)
-
-        signup_btn = QPushButton("가입하기")
-        signup_btn.setObjectName("btn_accent")
-        signup_btn.setFixedHeight(38)
-        signup_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        signup_btn.clicked.connect(self._signup)
-        lay.addWidget(signup_btn)
-
-        lay.addSpacing(10)
-        link_row = QHBoxLayout()
-        lbl = QLabel("이미 계정이 있으신가요?")
-        lbl.setStyleSheet(f"color:{C['muted']};font-size:11px;background:transparent;")
-        lnk = _link_btn("로그인")
-        lnk.clicked.connect(self._show_login)
-        link_row.addStretch(); link_row.addWidget(lbl)
-        link_row.addSpacing(4); link_row.addWidget(lnk); link_row.addStretch()
-        lay.addLayout(link_row)
-
-        return page
-
-    # ── Mode switch ──────────────────────────────────────────────────────────
+    # ── Navigation ────────────────────────────────────────────────────────────
 
     def _show_login(self):
         self._stack.setCurrentIndex(0)
@@ -166,46 +122,98 @@ class LoginDialog(QDialog):
         self._signup_err.setText("")
         self.setFixedHeight(self._SIGNUP_H)
 
-    # ── Actions ──────────────────────────────────────────────────────────────
+    def _show_forgot(self):
+        self._stack.setCurrentIndex(2)
+        self._switch_forgot_tab(0)
+
+    def _switch_forgot_tab(self, idx):
+        self._forgot_inner.setCurrentIndex(idx)
+        active = (
+            f"QPushButton{{background:{C['accent']};color:#fff;border:none;"
+            "border-radius:4px;font-size:13px;padding:0;}}"
+        )
+        inactive = (
+            f"QPushButton{{background:{C['header']};color:{C['text']};"
+            "border:none;border-radius:4px;font-size:13px;padding:0;}}"
+        )
+        self._tab_id_btn.setStyleSheet(active if idx == 0 else inactive)
+        self._tab_pw_btn.setStyleSheet(active if idx == 1 else inactive)
+        self._fi_err.setText("")
+        self._fi_err.setVisible(False)
+        self._rp_err.setText("")
+        self.setFixedHeight(self._FORGOT_ID_H if idx == 0 else self._FORGOT_PW_H)
+
+    # ── Actions ───────────────────────────────────────────────────────────────
 
     def _login(self):
         username = self._user_le.text().strip()
         password = self._pw_le.text()
         if not username or not password:
-            self._login_err.setText("아이디와 비밀번호를 입력하세요.")
+            set_msg(self._login_err, "아이디와 비밀번호를 입력하세요.")
             return
         user = self.db.verify_login(username, password)
         if user is None:
-            self._login_err.setText("아이디 또는 비밀번호가 올바르지 않습니다.")
+            set_msg(self._login_err, "아이디 또는 비밀번호가 올바르지 않습니다.")
             self._pw_le.clear()
             return
         if not user["is_active"]:
-            self._login_err.setText("비활성화된 계정입니다. 관리자에게 문의하세요.")
+            set_msg(self._login_err, "비활성화된 계정입니다. 관리자에게 문의하세요.")
             return
         self._complete_login(user)
 
     def _signup(self):
-        username = self._su_user_le.text().strip()
-        password = self._su_pw_le.text()
+        username  = self._su_user_le.text().strip()
+        password  = self._su_pw_le.text()
         password2 = self._su_pw2_le.text()
         name      = self._su_name_le.text().strip()
         bname     = self._su_bname_le.text().strip()
-
         if not all([username, password, password2, name, bname]):
-            self._signup_err.setText("모든 필드를 입력하세요.")
+            set_msg(self._signup_err, "모든 필드를 입력하세요.")
             return
         if password != password2:
-            self._signup_err.setText("비밀번호가 일치하지 않습니다.")
+            set_msg(self._signup_err, "비밀번호가 일치하지 않습니다.")
             return
         if self.db.username_exists(username):
-            self._signup_err.setText("아이디가 이미 사용중입니다.")
+            set_msg(self._signup_err, "아이디가 이미 사용중입니다.")
             return
         try:
             self.db.create_user(username, password, name, bname, "staff")
-            user = self.db.get_user(username)
-            self._complete_login(user)
+            self._complete_login(self.db.get_user(username))
         except Exception as e:
-            self._signup_err.setText(str(e))
+            set_msg(self._signup_err, str(e))
+
+    def _forgot_find_id(self):
+        name  = self._fi_name_le.text().strip()
+        bname = self._fi_bname_le.text().strip()
+        if not name or not bname:
+            set_msg(self._fi_err, "이름과 세례명을 입력하세요.")
+        else:
+            rows = self.db.find_username_by_name(name, bname)
+            if not rows:
+                set_msg(self._fi_err, "일치하는 계정을 찾을 수 없습니다.")
+            else:
+                set_msg(self._fi_err, "아이디: " + ", ".join(r["username"] for r in rows), ok=True)
+        self._fi_err.setVisible(True)
+        self.setFixedHeight(self._FORGOT_ID_ERR_H)
+
+    def _forgot_reset_pw(self):
+        username = self._rp_user_le.text().strip()
+        name     = self._rp_name_le.text().strip()
+        bname    = self._rp_bname_le.text().strip()
+        new_pw   = self._rp_new_le.text()
+        new_pw2  = self._rp_new2_le.text()
+        if not all([username, name, bname, new_pw, new_pw2]):
+            set_msg(self._rp_err, "모든 필드를 입력하세요.")
+            return
+        if new_pw != new_pw2:
+            set_msg(self._rp_err, "비밀번호가 일치하지 않습니다.")
+            return
+        if not self.db.reset_password_by_identity(username, name, bname, new_pw):
+            set_msg(self._rp_err, "입력한 정보가 올바르지 않습니다.")
+        else:
+            set_msg(self._rp_err, "비밀번호가 재설정되었습니다.", ok=True)
+            self._rp_new_le.clear()
+            self._rp_new2_le.clear()
 
     def _complete_login(self, user):
         self.db.update_last_login(user["username"])

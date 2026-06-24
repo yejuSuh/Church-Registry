@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QLabel, QGridLayout,
 )
 
-from constants import C, AREA_MAP
+from constants import C
 from ui_helpers import fv, shdr
 
 
@@ -29,20 +29,12 @@ class MoveRecordsTab(QWidget):
         if not rec:
             lbl = QLabel("  기록 없음"); lbl.setObjectName("mu"); lay.addWidget(lbl); return
 
-        area_code = fv(rec, "area_no").strip()
-        area_name = AREA_MAP.get(area_code, area_code)
-        duty = fv(rec, "duty_money")
-        try:
-            duty_str = f"{float(duty):,.0f} 원" if duty else ""
-        except ValueError:
-            duty_str = duty
-
         pairs = [
             ("전입일",    fv(rec, "movein_date")),
-            ("구역",      f"{area_code}  {area_name}" if area_name else area_code),
-            ("이전 교구", fv(rec, "pre_parish_nm")),
-            ("이전 성당", fv(rec, "pre_parish_church")),
-            ("교무금",    duty_str),
+            ("구역",      fv(rec, "new_district")),
+            ("이전 교구", fv(rec, "prev_diocese")),
+            ("이전 성당", fv(rec, "prev_parish")),
+            ("월 교무금", _format_money(fv(rec, "monthly_dues"))),
         ]
         lay.addWidget(self._record_card(pairs))
 
@@ -53,17 +45,10 @@ class MoveRecordsTab(QWidget):
             lbl = QLabel("  기록 없음"); lbl.setObjectName("mu"); lay.addWidget(lbl); return
 
         for rec in records:
-            duty = fv(rec, "duty_money")
-            try:
-                duty_str = f"{float(duty):,.0f} 원" if duty else ""
-            except ValueError:
-                duty_str = duty
-
             pairs = [
                 ("전출일",  fv(rec, "moveout_date")),
-                ("새 교구", fv(rec, "new_parish_nm")),
-                ("새 성당", fv(rec, "new_parish_church")),
-                ("교무금",  duty_str),
+                ("새 교구", fv(rec, "dest_diocese")),
+                ("새 성당", fv(rec, "dest_parish")),
             ]
             lay.addWidget(self._record_card(pairs))
 
@@ -82,3 +67,12 @@ class MoveRecordsTab(QWidget):
             col += 1
             if col >= 2: col = 0; row += 1
         return card
+
+
+def _format_money(val):
+    if not val:
+        return ""
+    try:
+        return f"{float(val):,.0f} 원"
+    except (ValueError, TypeError):
+        return val

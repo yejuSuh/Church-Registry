@@ -138,10 +138,9 @@ class PrinterSearchDialog(QDialog):
 
 
 class ExportDialog(QDialog):
-    HEADERS = ["교적번호", "이름", "세례명", "관계", "세대주", "전화번호", "주소", "등록일"]
-    FIELDS  = ["parishioner_no", "name", "baptism_nm", "relation",
-               "host_nm", "tel_home", "address", "registion_date"]
-    COL_W   = [82, 65, 65, 45, 70, 88, 275, 72]   # landscape A4 ≈ 762 pts usable
+    HEADERS = ["교적번호", "이름", "세례명", "관계", "세대주", "구역"]
+    FIELDS  = ["member_id", "name", "baptismal_name", "relation", "head_of_household", "district"]
+    COL_W   = [110, 80, 80, 55, 90, 160]   # landscape A4 ≈ 762 pts usable
 
     def __init__(self, parent, rows):
         super().__init__(parent)
