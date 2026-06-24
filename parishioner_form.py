@@ -65,9 +65,9 @@ class ParishionerForm(QDialog):
         grid.addWidget(vbox_field("교적번호 (자동 생성)", self.no_le, C['card']), r, 2, 1, 2); r += 1
 
         self.name_e  = add("이름 *",       mk_entry(ev("name")),                                               r, 0)
-        self.host_e  = add("세대주 이름 *", mk_entry(ev("head_of_household") if existing else prefill_host),   r, 1)
-        self.rel_cb  = add("관계 *",        mk_combo(RELATIONS, ev("relation") if existing else "본인"),        r, 2)
-        self.bname_e = add("세례명",        mk_entry(ev("baptismal_name")),                                     r, 3); r += 1
+        self.bname_e = add("세례명",        mk_entry(ev("baptismal_name")),                                     r, 1)
+        self.host_e  = add("세대주 이름 *", mk_entry(ev("head_of_household") if existing else prefill_host),   r, 2)
+        self.rel_cb  = add("관계 *",        mk_combo(RELATIONS, ev("relation") if existing else "본인"),        r, 3); r += 1
 
         grid.addWidget(shdr("💰  교무금"), r, 0, 1, 4); r += 1
         dues_val = ev("dues_paying") or "N"
