@@ -145,15 +145,15 @@ class ExportDialog(QDialog):
     def __init__(self, parent, rows):
         super().__init__(parent)
         self.rows = rows
-        self.setWindowTitle("PDF 내보내기")
-        self.resize(320, 130)
+        self.setWindowTitle("내보내기")
+        self.resize(340, 120)
         self.setModal(True)
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(20, 16, 20, 16)
         lay.setSpacing(12)
 
-        info = QLabel(f"현재 표시된 교적 {len(rows)}명을 PDF로 저장합니다.")
+        info = QLabel(f"선택된 교적 {len(rows)}명을 출력합니다.")
         info.setObjectName("fv")
         lay.addWidget(info)
 
