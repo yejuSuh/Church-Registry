@@ -10,7 +10,7 @@ else:
     # Running as a plain Python script
     _DIR = os.path.dirname(os.path.abspath(__file__))
 
-DB_PATH = os.path.join(_DIR, "parish.db")
+DB_PATH = os.path.join(_DIR, "parish.bak.db")
 _ARROW_SVG   = os.path.join(_DIR, "arrow_down.svg").replace("\\", "/")
 
 C = dict(
