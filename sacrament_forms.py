@@ -168,7 +168,7 @@ class DeathForm(QDialog):
                 member_id=self.pno, death_date=ge(self.date_e),
                 cemetery=ge(self.place_e),
                 last_rites_date=ge(self.sick_e),
-                viaticum_date=ge(self.viat_e),
+                viaticum=ge(self.viat_e),
             ))
             if self.on_save: self.on_save()
             self.accept()

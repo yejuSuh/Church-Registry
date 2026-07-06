@@ -162,83 +162,188 @@ class DB:
 
     # ── Member queries ───────────────────────────────────────────────────────
 
+    # Shared SELECT projection used by search() and get()
+    _MEMBER_SELECT = (
+        "SELECT m.member_id, m.reg_area, m.reg_code,"
+        " m.reg_area || '-' || m.reg_code AS display_id,"
+        " TRIM(m.name_korean) AS name,"
+        " TRIM(m.baptismal_name) AS baptismal_name,"
+        " TRIM(m.district) AS district,"
+        " m.address, m.postal_code,"
+        " m.phone_cell, m.phone_home, m.phone_work, m.email,"
+        " m.birth_date, m.sex,"
+        " TRIM(f.head_of_household) AS head_of_household,"
+        " TRIM(f.relation) AS relation,"
+        " COALESCE(f.dues_paying, 0) AS dues_paying,"
+        " f.monthly_amount AS monthly_dues,"
+        " f.dues_start_date AS dues_start,"
+        " f.dues_last_date AS dues_last_paid,"
+        " COALESCE(f.notes, m.notes) AS notes,"
+        " CASE WHEN ms.status='inactive' THEN 1 ELSE 0 END AS is_inactive"
+        " FROM member m"
+        " LEFT JOIN family f ON f.member_id=m.member_id"
+        " LEFT JOIN member_status ms ON ms.member_id=m.member_id"
+    )
+
     def search(self, q="", district=""):
-        sql = (
-            "SELECT r.member_id, TRIM(r.name) name, TRIM(r.baptismal_name) baptismal_name,"
-            " TRIM(r.district) district, TRIM(r.head_of_household) head_of_household,"
-            " TRIM(r.relation) relation, r.dues_paying,"
-            " CASE WHEN EXISTS(SELECT 1 FROM inactive i WHERE i.member_id=r.member_id)"
-            "      THEN 1 ELSE 0 END AS is_inactive"
-            " FROM registration r WHERE 1=1"
-        )
+        # Only show real parishioners (numeric reg_area), not placeholder-only members
+        sql = self._MEMBER_SELECT + " WHERE m.reg_area GLOB '[0-9]*'"
         p = []
         if q:
-            sql += (" AND (TRIM(r.name) LIKE ? OR TRIM(r.baptismal_name) LIKE ?"
-                    " OR TRIM(r.member_id) LIKE ? OR TRIM(r.head_of_household) LIKE ?)")
+            sql += (
+                " AND (TRIM(m.name_korean) LIKE ? OR TRIM(m.baptismal_name) LIKE ?"
+                " OR (m.reg_area || '-' || m.reg_code) LIKE ?"
+                " OR TRIM(f.head_of_household) LIKE ?)"
+            )
             p += [f"%{q}%"] * 4
         if district:
-            sql += " AND TRIM(r.district)=?"
+            sql += " AND TRIM(m.district)=?"
             p.append(district)
-        sql += " ORDER BY r.member_id"
+        sql += " ORDER BY m.reg_area, CAST(m.reg_code AS INTEGER)"
         with self._conn() as c:
             return c.execute(sql, p).fetchall()
 
     def get(self, pno):
         with self._conn() as c:
             return c.execute(
-                "SELECT r.*,"
-                " CASE WHEN EXISTS(SELECT 1 FROM inactive i WHERE i.member_id=r.member_id)"
-                "      THEN 1 ELSE 0 END AS is_inactive"
-                " FROM registration r WHERE r.member_id=?",
-                (pno,),
+                self._MEMBER_SELECT + " WHERE m.member_id=?",
+                (int(pno),),
             ).fetchone()
 
     def household(self, head, exclude=None):
         with self._conn() as c:
             base = (
-                "SELECT member_id, TRIM(name) name, TRIM(relation) relation,"
-                " TRIM(baptismal_name) baptismal_name"
-                " FROM registration WHERE TRIM(head_of_household)=?"
+                "SELECT m.member_id,"
+                " m.reg_area || '-' || m.reg_code AS display_id,"
+                " TRIM(m.name_korean) AS name,"
+                " TRIM(m.baptismal_name) AS baptismal_name,"
+                " TRIM(f.relation) AS relation"
+                " FROM member m"
+                " LEFT JOIN family f ON f.member_id=m.member_id"
+                " WHERE TRIM(f.head_of_household)=?"
             )
             if exclude:
                 return c.execute(
-                    base + " AND member_id!=? ORDER BY member_id", (head, exclude)
+                    base + " AND m.member_id!=? ORDER BY m.member_id",
+                    (head, int(exclude)),
                 ).fetchall()
-            return c.execute(base + " ORDER BY member_id", (head,)).fetchall()
+            return c.execute(base + " ORDER BY m.member_id", (head,)).fetchall()
 
     def next_no(self, area_code):
+        # Only consider rows with the real numeric area code (exclude placeholder prefixes)
         with self._conn() as c:
             rows = c.execute(
-                "SELECT member_id FROM registration WHERE member_id LIKE ?",
-                (f"{area_code}%",),
+                "SELECT reg_code FROM member"
+                " WHERE reg_area=? AND reg_area GLOB '[0-9]*'",
+                (area_code,),
             ).fetchall()
         hi = 0
         for r in rows:
             try:
-                hi = max(hi, int(r[0].strip().split("-")[1]))
+                hi = max(hi, int(r[0].strip()))
             except Exception:
                 pass
         return f"{area_code}-{str(hi + 1).zfill(5)}"
 
     def create(self, data):
-        cols = list(data.keys())
-        sql = f"INSERT INTO registration ({','.join(cols)}) VALUES ({','.join(['?']*len(cols))})"
+        # data has flat keys matching old schema; split into member + family rows
+        display_id = data.get("member_id", "")
+        if "-" in display_id:
+            reg_area, reg_code = display_id.split("-", 1)
+        else:
+            reg_area, reg_code = "", display_id
+
         with self._conn() as c:
-            c.execute(sql, list(data.values()))
+            c.execute(
+                "INSERT INTO member (reg_area, reg_code, name_korean, baptismal_name, district)"
+                " VALUES (?,?,?,?,?)",
+                (
+                    reg_area,
+                    reg_code,
+                    data.get("name", ""),
+                    data.get("baptismal_name", "") or "",
+                    data.get("district", "") or "",
+                ),
+            )
+            new_mid = c.lastrowid
+            c.execute(
+                "INSERT INTO family"
+                " (member_id, head_of_household, relation, dues_paying,"
+                "  monthly_amount, dues_start_date, dues_last_date, notes)"
+                " VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    new_mid,
+                    data.get("head_of_household", "") or "",
+                    data.get("relation", "") or "",
+                    1 if data.get("dues_paying") in (1, "Y", "1", True) else 0,
+                    data.get("monthly_dues") or None,
+                    data.get("dues_start", "") or "",
+                    data.get("dues_last_paid", "") or "",
+                    data.get("notes", "") or "",
+                ),
+            )
+            c.execute(
+                "INSERT OR IGNORE INTO member_status (member_id, status) VALUES (?, 'active')",
+                (new_mid,),
+            )
             c.commit()
 
     def update(self, pno, data):
-        sets = ", ".join(f"{k}=?" for k in data)
+        mid = int(pno)
         with self._conn() as c:
             c.execute(
-                f"UPDATE registration SET {sets} WHERE member_id=?",
-                list(data.values()) + [pno],
+                "UPDATE member SET name_korean=?, baptismal_name=?, district=?"
+                " WHERE member_id=?",
+                (
+                    data.get("name", ""),
+                    data.get("baptismal_name", "") or "",
+                    data.get("district", "") or "",
+                    mid,
+                ),
             )
+            # Upsert family row (may not exist for members imported from sacrament records)
+            existing_family = c.execute(
+                "SELECT family_id FROM family WHERE member_id=?", (mid,)
+            ).fetchone()
+            dues = 1 if data.get("dues_paying") in (1, "Y", "1", True) else 0
+            if existing_family:
+                c.execute(
+                    "UPDATE family SET head_of_household=?, relation=?, dues_paying=?,"
+                    " monthly_amount=?, dues_start_date=?, dues_last_date=?, notes=?"
+                    " WHERE member_id=?",
+                    (
+                        data.get("head_of_household", "") or "",
+                        data.get("relation", "") or "",
+                        dues,
+                        data.get("monthly_dues") or None,
+                        data.get("dues_start", "") or "",
+                        data.get("dues_last_paid", "") or "",
+                        data.get("notes", "") or "",
+                        mid,
+                    ),
+                )
+            else:
+                c.execute(
+                    "INSERT INTO family"
+                    " (member_id, head_of_household, relation, dues_paying,"
+                    "  monthly_amount, dues_start_date, dues_last_date, notes)"
+                    " VALUES (?,?,?,?,?,?,?,?)",
+                    (
+                        mid,
+                        data.get("head_of_household", "") or "",
+                        data.get("relation", "") or "",
+                        dues,
+                        data.get("monthly_dues") or None,
+                        data.get("dues_start", "") or "",
+                        data.get("dues_last_paid", "") or "",
+                        data.get("notes", "") or "",
+                    ),
+                )
             c.commit()
 
     def hard_delete(self, pno):
         with self._conn() as c:
-            c.execute("DELETE FROM registration WHERE member_id=?", (pno,))
+            c.execute("DELETE FROM member WHERE member_id=?", (int(pno),))
             c.commit()
 
     # ── Sacrament records ────────────────────────────────────────────────────
@@ -246,59 +351,47 @@ class DB:
     def get_baptism_records(self, pno):
         with self._conn() as c:
             return c.execute(
-                "SELECT * FROM baptism WHERE TRIM(member_id)=? ORDER BY baptism_date",
-                (pno,),
+                "SELECT * FROM baptism WHERE member_id=? ORDER BY baptism_date",
+                (int(pno),),
             ).fetchall()
 
     def get_confirmation_records(self, pno):
         with self._conn() as c:
             return c.execute(
-                "SELECT * FROM confirmation WHERE TRIM(member_id)=? ORDER BY confirmation_date",
-                (pno,),
+                "SELECT * FROM confirmation WHERE member_id=? ORDER BY confirmation_date",
+                (int(pno),),
             ).fetchall()
 
     def get_wedding_records(self, pno):
         with self._conn() as c:
-            reg = c.execute(
-                "SELECT name FROM registration WHERE member_id=?", (pno,)
-            ).fetchone()
-            if not reg:
-                return []
-            name = (reg["name"] or "").strip()
             return c.execute(
                 "SELECT * FROM wedding"
-                " WHERE TRIM(groom_name)=? OR TRIM(bride_name)=?"
+                " WHERE groom_member_id=? OR bride_member_id=?"
                 " ORDER BY wedding_date",
-                (name, name),
+                (int(pno), int(pno)),
             ).fetchall()
 
     def get_death_records(self, pno):
         with self._conn() as c:
             return c.execute(
-                "SELECT * FROM death WHERE TRIM(member_id)=? ORDER BY death_date",
-                (pno,),
+                "SELECT * FROM status_death WHERE member_id=? ORDER BY death_date",
+                (int(pno),),
             ).fetchall()
 
     # ── Move-in / Move-out records ───────────────────────────────────────────
 
     def get_movein_record(self, pno):
         with self._conn() as c:
-            reg = c.execute(
-                "SELECT name FROM registration WHERE member_id=?", (pno,)
-            ).fetchone()
-            if not reg:
-                return None
-            name = (reg["name"] or "").strip()
             return c.execute(
-                "SELECT * FROM move_in WHERE TRIM(name)=? OR TRIM(head_of_household)=? LIMIT 1",
-                (name, name),
+                "SELECT * FROM move_in WHERE member_id=? LIMIT 1",
+                (int(pno),),
             ).fetchone()
 
     def get_moveout_records(self, pno):
         with self._conn() as c:
             return c.execute(
-                "SELECT * FROM move_out WHERE TRIM(member_id)=? ORDER BY moveout_date",
-                (pno,),
+                "SELECT * FROM move_out WHERE member_id=? ORDER BY moveout_date",
+                (int(pno),),
             ).fetchall()
 
     # ── Sacrament write methods ──────────────────────────────────────────────
@@ -322,22 +415,43 @@ class DB:
             c.execute(sql, list(data.values())); c.commit()
 
     def create_death_record(self, data):
-        cols = list(data.keys())
-        sql = f"INSERT INTO death ({','.join(cols)}) VALUES ({','.join(['?']*len(cols))})"
+        # Inserts into status_death (new schema); also marks member as deceased
+        mid = int(data.get("member_id", 0))
         with self._conn() as c:
-            c.execute(sql, list(data.values())); c.commit()
+            c.execute(
+                "INSERT INTO status_death (member_id, death_date, cemetery, last_rites_date, viaticum)"
+                " VALUES (?,?,?,?,?)",
+                (
+                    mid,
+                    data.get("death_date", "") or "",
+                    data.get("cemetery", "") or "",
+                    data.get("last_rites_date", "") or "",
+                    data.get("viaticum", "") or "",
+                ),
+            )
+            c.execute(
+                "INSERT INTO member_status (member_id, status) VALUES (?, 'deceased')"
+                " ON CONFLICT(member_id) DO UPDATE SET status='deceased'",
+                (mid,),
+            )
+            c.commit()
 
     # ── Statistics ───────────────────────────────────────────────────────────
 
     def stats(self):
         with self._conn() as c:
-            active   = c.execute("SELECT COUNT(*) FROM registration").fetchone()[0]
-            lapsed   = c.execute("SELECT COUNT(DISTINCT member_id) FROM inactive").fetchone()[0]
+            active   = c.execute(
+                "SELECT COUNT(*) FROM member_status WHERE status='active'"
+            ).fetchone()[0]
+            lapsed   = c.execute(
+                "SELECT COUNT(*) FROM member_status WHERE status='inactive'"
+            ).fetchone()[0]
             baptisms = c.execute("SELECT COUNT(*) FROM baptism").fetchone()[0]
             weddings = c.execute("SELECT COUNT(*) FROM wedding").fetchone()[0]
             areas    = c.execute(
-                "SELECT TRIM(district) area, COUNT(*) cnt"
-                " FROM registration"
-                " GROUP BY TRIM(district) ORDER BY cnt DESC"
+                "SELECT TRIM(m.district) area, COUNT(*) cnt"
+                " FROM member m"
+                " WHERE m.reg_area GLOB '[0-9]*'"
+                " GROUP BY TRIM(m.district) ORDER BY cnt DESC"
             ).fetchall()
         return dict(active=active, lapsed=lapsed, baptisms=baptisms, weddings=weddings, areas=areas)

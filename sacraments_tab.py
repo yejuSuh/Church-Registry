@@ -67,7 +67,7 @@ class SacramentsTab(QWidget):
                 ("사망일",   fv(rec, "death_date")),
                 ("장소",     fv(rec, "cemetery")),
                 ("종부성사",  fv(rec, "last_rites_date")),
-                ("노자성사",  fv(rec, "viaticum_date")),
+                ("노자성사",  fv(rec, "viaticum")),
             ],
             lambda: DeathForm(self, self.db, self.pno, name, on_save=self.reload).exec())
 

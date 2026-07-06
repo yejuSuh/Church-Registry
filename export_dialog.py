@@ -139,7 +139,7 @@ class PrinterSearchDialog(QDialog):
 
 class ExportDialog(QDialog):
     HEADERS = ["교적번호", "이름", "세례명", "관계", "세대주", "구역"]
-    FIELDS  = ["member_id", "name", "baptismal_name", "relation", "head_of_household", "district"]
+    FIELDS  = ["display_id", "name", "baptismal_name", "relation", "head_of_household", "district"]
     COL_W   = [110, 80, 80, 55, 90, 160]   # landscape A4 ≈ 762 pts usable
 
     def __init__(self, parent, rows):

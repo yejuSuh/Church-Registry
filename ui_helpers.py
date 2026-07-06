@@ -54,7 +54,7 @@ def mk_combo(values, val=""):
 
 def mk_check(label, val=""):
     cb = QCheckBox(label)
-    cb.setChecked(str(val).strip() == "Y")
+    cb.setChecked(str(val).strip() in ("Y", "1") or val is True or val == 1)
     return cb
 
 def ge(w):

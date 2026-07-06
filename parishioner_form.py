@@ -48,17 +48,16 @@ class ParishionerForm(QDialog):
 
         grid.addWidget(shdr("📋  기본 정보"), r, 0, 1, 4); r += 1
 
-        # area_cb → district name; no_le shows member_id
+        # area_cb → district name; no_le shows formatted reg_area-reg_code
         if existing:
-            member_id = ev("member_id")
-            cur_area = next((d for d in AREA_DISP if d.startswith(member_id[:5])), AREA_DISP[-1])
+            cur_area = next((d for d in AREA_DISP if d.startswith(ev("reg_area"))), AREA_DISP[-1])
         elif prefill_area:
             cur_area = next((d for d in AREA_DISP if d.startswith(prefill_area)), AREA_DISP[-1])
         else:
             cur_area = AREA_DISP[-1]
 
         self.area_cb = mk_combo(AREA_DISP, cur_area)
-        self.no_le = QLineEdit(ev("member_id") if existing else "")
+        self.no_le = QLineEdit(ev("display_id") if existing else "")
         self.no_le.setReadOnly(True)
         self.no_le.setStyleSheet(f"background:{C['header']};color:{C['muted']};")
         grid.addWidget(vbox_field("구역 *", self.area_cb, C['card']), r, 0, 1, 2)
@@ -121,7 +120,7 @@ class ParishionerForm(QDialog):
             relation=ge(self.rel_cb),
             baptismal_name=ge(self.bname_e),
             district=district_name,
-            dues_paying="Y" if self.dues_cb.isChecked() else "N",
+            dues_paying=1 if self.dues_cb.isChecked() else 0,
             monthly_dues=ge(self.dues_amt_e) or None,
             dues_start=ge(self.dues_st_e),
             dues_last_paid=ge(self.dues_last_e),

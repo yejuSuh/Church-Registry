@@ -57,7 +57,7 @@ class DetailPanel(QWidget):
         name_txt = f"{v('name')}  ({bname})" if bname != "—" else v("name")
         nl = QLabel(name_txt)
         nl.setStyleSheet("font-size:17px;font-weight:bold;")
-        sl = QLabel(f"교적번호: {v('member_id')}  |  관계: {v('relation')}  |  세대주: {v('head_of_household')}")
+        sl = QLabel(f"교적번호: {v('display_id')}  |  관계: {v('relation')}  |  세대주: {v('head_of_household')}")
         sl.setStyleSheet("color:#BDD7EE;font-size:10px;")
         close_btn = QPushButton("✕")
         close_btn.setFixedSize(24, 24)
@@ -110,19 +110,20 @@ class DetailPanel(QWidget):
             r += 1
 
         sh("📋  기본 정보")
-        r2("교적번호", v("member_id"),         "세례명",  v("baptismal_name"))
+        r2("교적번호", v("display_id"),         "세례명",  v("baptismal_name"))
         r2("세대주",   v("head_of_household"), "관계",    v("relation"))
         r2("구역",     v("district"))
 
         flags = []
-        if is_inactive:                         flags.append("😴 냉담자")
-        if str(v("dues_paying")).strip() == "Y": flags.append("💰 교무금")
+        if is_inactive:                    flags.append("😴 냉담자")
+        if v("dues_paying") == "1":        flags.append("💰 교무금")
         if flags:
             fl = QLabel("  ".join(flags)); fl.setObjectName("mu")
             grid.addWidget(fl, r, 0, 1, 4); r += 1
 
         sh("💰  교무금")
-        r2("납부 여부", v("dues_paying"), "월 교무금", v("monthly_dues"))
+        dues_label = "납부" if v("dues_paying") == "1" else "미납"
+        r2("납부 여부", dues_label, "월 교무금", v("monthly_dues"))
         r2("시작일",    v("dues_start"),  "최근 납부", v("dues_last_paid"))
 
         if v("notes") != "—":
@@ -152,7 +153,7 @@ class DetailPanel(QWidget):
             tbl.verticalHeader().setDefaultSectionSize(row_h)
             tbl.setFixedHeight(hdr_h + len(members) * row_h + 2)
             for i, m in enumerate(members):
-                for j, key in enumerate(["name", "baptismal_name", "relation", "member_id"]):
+                for j, key in enumerate(["name", "baptismal_name", "relation", "display_id"]):
                     tbl.setItem(i, j, QTableWidgetItem(str(m[key] or "").strip()))
             grid.addWidget(tbl, r, 0, 1, 4); r += 1
 

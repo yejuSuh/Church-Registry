@@ -31,10 +31,8 @@ class MoveRecordsTab(QWidget):
 
         pairs = [
             ("전입일",    fv(rec, "movein_date")),
-            ("구역",      fv(rec, "new_district")),
-            ("이전 교구", fv(rec, "prev_diocese")),
-            ("이전 성당", fv(rec, "prev_parish")),
-            ("월 교무금", _format_money(fv(rec, "monthly_dues"))),
+            ("이전 교구", fv(rec, "former_diocese")),
+            ("이전 성당", fv(rec, "former_parish")),
         ]
         lay.addWidget(self._record_card(pairs))
 
@@ -69,10 +67,3 @@ class MoveRecordsTab(QWidget):
         return card
 
 
-def _format_money(val):
-    if not val:
-        return ""
-    try:
-        return f"{float(val):,.0f} 원"
-    except (ValueError, TypeError):
-        return val
