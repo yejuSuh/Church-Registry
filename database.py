@@ -167,6 +167,7 @@ class DB:
         "SELECT m.member_id, m.reg_area, m.reg_code,"
         " m.reg_area || '-' || m.reg_code AS display_id,"
         " TRIM(m.name_korean) AS name,"
+        " TRIM(m.name_english) AS name_english,"
         " TRIM(m.baptismal_name) AS baptismal_name,"
         " TRIM(m.district) AS district,"
         " m.address, m.postal_code,"
@@ -255,17 +256,23 @@ class DB:
 
         with self._conn() as c:
             c.execute(
-                "INSERT INTO member (reg_area, reg_code, name_korean, baptismal_name, district)"
-                " VALUES (?,?,?,?,?)",
+                "INSERT INTO member"
+                " (reg_area, reg_code, name_korean, name_english, baptismal_name, district,"
+                "  birth_date, sex, email)"
+                " VALUES (?,?,?,?,?,?,?,?,?)",
                 (
                     reg_area,
                     reg_code,
                     data.get("name", ""),
+                    data.get("name_english") or None,
                     data.get("baptismal_name", "") or "",
                     data.get("district", "") or "",
+                    data.get("birth_date") or None,
+                    data.get("sex") or None,
+                    data.get("email") or None,
                 ),
             )
-            new_mid = c.lastrowid
+            new_mid = c.execute("SELECT last_insert_rowid()").fetchone()[0]
             c.execute(
                 "INSERT INTO family"
                 " (member_id, head_of_household, relation, dues_paying,"
@@ -292,12 +299,17 @@ class DB:
         mid = int(pno)
         with self._conn() as c:
             c.execute(
-                "UPDATE member SET name_korean=?, baptismal_name=?, district=?"
+                "UPDATE member SET name_korean=?, name_english=?, baptismal_name=?, district=?,"
+                " birth_date=?, sex=?, email=?"
                 " WHERE member_id=?",
                 (
                     data.get("name", ""),
+                    data.get("name_english") or None,
                     data.get("baptismal_name", "") or "",
                     data.get("district", "") or "",
+                    data.get("birth_date") or None,
+                    data.get("sex") or None,
+                    data.get("email") or None,
                     mid,
                 ),
             )

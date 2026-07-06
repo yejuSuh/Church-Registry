@@ -16,7 +16,7 @@ class ParishionerForm(QDialog):
         self.pno = pno
         self.on_save = on_save
         self.setWindowTitle("교적 추가" if not pno else "교적 수정")
-        self.resize(700, 480)
+        self.resize(700, 560)
         self.setModal(True)
 
         existing = db.get(pno) if pno else None
@@ -63,10 +63,17 @@ class ParishionerForm(QDialog):
         grid.addWidget(vbox_field("구역 *", self.area_cb, C['card']), r, 0, 1, 2)
         grid.addWidget(vbox_field("교적번호 (자동 생성)", self.no_le, C['card']), r, 2, 1, 2); r += 1
 
-        self.name_e  = add("이름 *",       mk_entry(ev("name")),                                               r, 0)
-        self.bname_e = add("세례명",        mk_entry(ev("baptismal_name")),                                     r, 1)
-        self.host_e  = add("세대주 이름 *", mk_entry(ev("head_of_household") if existing else prefill_host),   r, 2)
-        self.rel_cb  = add("관계 *",        mk_combo(RELATIONS, ev("relation") if existing else "본인"),        r, 3); r += 1
+        self.name_kr_e = add("이름 (한글) *", mk_entry(ev("name")),                                             r, 0)
+        self.name_en_e = add("이름 (영문)",   mk_entry(ev("name_english")),                                     r, 1)
+        self.host_e    = add("세대주 이름 *", mk_entry(ev("head_of_household") if existing else prefill_host), r, 2)
+        self.rel_cb    = add("관계 *",        mk_combo(RELATIONS, ev("relation") if existing else "본인"),      r, 3); r += 1
+
+        sex_disp = {'M': '남', 'F': '여'}.get(ev("sex"), '')
+        self.bname_e = add("세례명",   mk_entry(ev("baptismal_name")),                      r, 0)
+        self.birth_e = add("생년월일", mk_entry(ev("birth_date")),                          r, 1)
+        self.birth_e.setPlaceholderText("YYYY/MM/DD")
+        self.sex_cb  = add("성별",     mk_combo(['', '남', '여'], sex_disp),                r, 2)
+        self.email_e = add("이메일",   mk_entry(ev("email")),                               r, 3); r += 1
 
         grid.addWidget(shdr("💰  교무금"), r, 0, 1, 4); r += 1
         dues_val = ev("dues_paying") or "N"
@@ -98,10 +105,10 @@ class ParishionerForm(QDialog):
         outer.addWidget(bb)
 
     def _save(self):
-        name = ge(self.name_e)
+        name = ge(self.name_kr_e)
         host = ge(self.host_e)
         if not name:
-            QMessageBox.warning(self, "오류", "이름을 입력하세요.")
+            QMessageBox.warning(self, "오류", "한글 이름을 입력하세요.")
             return
         if not host:
             QMessageBox.warning(self, "오류", "세대주 이름을 입력하세요.")
@@ -113,13 +120,18 @@ class ParishionerForm(QDialog):
         district_name = area_parts[1].strip() if len(area_parts) > 1 else area_text
 
         pno = self.pno if self.pno else self.db.next_no(area_code)
+        sex_db = {'남': 'M', '여': 'F'}.get(ge(self.sex_cb)) or None
         data = dict(
             member_id=pno,
             name=name,
+            name_english=ge(self.name_en_e) or None,
             head_of_household=host,
             relation=ge(self.rel_cb),
             baptismal_name=ge(self.bname_e),
             district=district_name,
+            birth_date=ge(self.birth_e) or None,
+            sex=sex_db,
+            email=ge(self.email_e) or None,
             dues_paying=1 if self.dues_cb.isChecked() else 0,
             monthly_dues=ge(self.dues_amt_e) or None,
             dues_start=ge(self.dues_st_e),

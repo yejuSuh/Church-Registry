@@ -54,7 +54,12 @@ class DetailPanel(QWidget):
         hdr = QWidget(); hdr.setObjectName("detail_hdr"); hdr.setFixedHeight(68)
         hl = QHBoxLayout(hdr); hl.setContentsMargins(16, 8, 16, 8)
         bname = v("baptismal_name")
-        name_txt = f"{v('name')}  ({bname})" if bname != "—" else v("name")
+        name_en = v("name_english")
+        name_txt = v("name")
+        if name_en != "—":
+            name_txt += f"  {name_en}"
+        if bname != "—":
+            name_txt += f"  ({bname})"
         nl = QLabel(name_txt)
         nl.setStyleSheet("font-size:17px;font-weight:bold;")
         sl = QLabel(f"교적번호: {v('display_id')}  |  관계: {v('relation')}  |  세대주: {v('head_of_household')}")

@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
     QStyledItemDelegate, QMessageBox,
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QRectF, QEvent
+from PyQt6.QtCore import Qt, pyqtSignal, QRectF, QEvent, QTimer
 from PyQt6.QtGui import QColor, QPainterPath, QPen
 
 from constants import C, AREA_DISP
@@ -189,7 +189,11 @@ class ListView(QWidget):
         self.table.setItemDelegateForColumn(6, _RowCheckDelegate(self.table))
         lay.addWidget(self.table, 1)
 
-        self.q_le.textChanged.connect(self.load)
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.setInterval(180)
+        self._search_timer.timeout.connect(self.load)
+        self.q_le.textChanged.connect(lambda _: self._search_timer.start())
         self.area_cb.currentIndexChanged.connect(self.load)
         self.table.itemSelectionChanged.connect(self._sel)
         self.table.itemChanged.connect(self._on_item_changed)
