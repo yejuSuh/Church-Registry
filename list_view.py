@@ -4,44 +4,12 @@ from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
     QStyledItemDelegate, QMessageBox,
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QRectF, QEvent, QTimer
-from PyQt6.QtGui import QColor, QPainterPath, QPen
+from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QTimer
+from PyQt6.QtGui import QColor
 
 from constants import C, AREA_DISP
-from ui_helpers import mk_btn
+from ui_helpers import mk_btn, draw_checkbox
 from export_dialog import ExportDialog
-
-_CB_SZ = 15   # checkbox size in px
-_CB_RD = 3    # corner radius
-
-
-def _draw_checkbox(painter, rect, checked: bool):
-    """Draw a rounded checkbox centered in rect. Works for both header and cell painters."""
-    cx = rect.x() + (rect.width()  - _CB_SZ) // 2
-    cy = rect.y() + (rect.height() - _CB_SZ) // 2
-    rf = QRectF(cx, cy, _CB_SZ, _CB_SZ)
-
-    path = QPainterPath()
-    path.addRoundedRect(rf, _CB_RD, _CB_RD)
-
-    painter.save()
-    painter.setRenderHint(painter.RenderHint.Antialiasing)
-    if checked:
-        painter.fillPath(path, QColor(C['accent']))
-        m = 3
-        painter.setPen(QPen(QColor('#FFFFFF'), 1.8,
-                            Qt.PenStyle.SolidLine,
-                            Qt.PenCapStyle.RoundCap,
-                            Qt.PenJoinStyle.RoundJoin))
-        painter.drawLine(cx + m,            cy + _CB_SZ // 2,
-                         cx + _CB_SZ // 2 - 1, cy + _CB_SZ - m - 1)
-        painter.drawLine(cx + _CB_SZ // 2 - 1, cy + _CB_SZ - m - 1,
-                         cx + _CB_SZ - m,   cy + m)
-    else:
-        painter.fillPath(path, QColor('#FFFFFF'))
-        painter.setPen(QPen(QColor(C['border']), 1.2))
-        painter.drawPath(path)
-    painter.restore()
 
 
 class _RowCheckDelegate(QStyledItemDelegate):
@@ -63,7 +31,7 @@ class _RowCheckDelegate(QStyledItemDelegate):
         painter.restore()
 
         raw = index.data(Qt.ItemDataRole.CheckStateRole)
-        _draw_checkbox(painter, option.rect, self._is_checked(raw))
+        draw_checkbox(painter, option.rect, self._is_checked(raw))
 
     def editorEvent(self, event, model, option, index):
         if event.type() == QEvent.Type.MouseButtonRelease:
@@ -113,7 +81,7 @@ class _CheckHeaderView(QHeaderView):
         super().paintSection(painter, rect, logical_index)
         painter.restore()
         if logical_index == self._check_col:
-            _draw_checkbox(painter, rect, self._checked)
+            draw_checkbox(painter, rect, self._checked)
 
 
 class ListView(QWidget):

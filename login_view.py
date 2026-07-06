@@ -89,9 +89,9 @@ def build_login_page():
     lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(8)
 
-    user_le   = field("아이디")
-    pw_le     = field("비밀번호", echo=True)
-    err       = err_label(height=32)
+    user_le = field("아이디")
+    pw_le = field("비밀번호", echo=True)
+    err = err_label(height=32)
     login_btn = accent_btn("로그인")
 
     lay.addWidget(user_le)
@@ -128,12 +128,12 @@ def build_signup_page():
     lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(8)
 
-    user_le   = field("아이디")
-    pw_le     = field("비밀번호", echo=True)
-    pw2_le    = field("비밀번호 확인", echo=True)
-    name_le   = field("이름")
-    bname_le  = field("세례명")
-    err       = err_label(height=32)
+    user_le = field("아이디")
+    pw_le = field("비밀번호", echo=True)
+    pw2_le = field("비밀번호 확인", echo=True)
+    name_le = field("이름")
+    bname_le = field("세례명")
+    err = err_label(height=32)
     signup_btn = accent_btn("가입하기")
 
     for w in (user_le, pw_le, pw2_le, name_le, bname_le):
@@ -164,16 +164,17 @@ def build_find_id_page():
     lay.setContentsMargins(0, 4, 0, 0)
     lay.setSpacing(8)
 
-    name_le  = field("이름")
+    name_le = field("이름")
     bname_le = field("세례명")
-    err      = err_label(height=32)
+    err = err_label(height=32)
     err.setVisible(False)
-    btn      = accent_btn("아이디 찾기")
+    btn = accent_btn("아이디 찾기")
 
     lay.addWidget(name_le)
     lay.addWidget(bname_le)
     lay.addWidget(err)
     lay.addWidget(btn)
+    lay.addSpacing(10)
 
     return page, {"name_le": name_le, "bname_le": bname_le, "err": err, "btn": btn}
 
@@ -184,13 +185,13 @@ def build_reset_pw_page():
     lay.setContentsMargins(0, 4, 0, 0)
     lay.setSpacing(8)
 
-    user_le  = field("아이디")
-    name_le  = field("이름")
+    user_le = field("아이디")
+    name_le = field("이름")
     bname_le = field("세례명")
-    new_le   = field("새 비밀번호", echo=True)
-    new2_le  = field("새 비밀번호 확인", echo=True)
-    err      = err_label(height=32)
-    btn      = accent_btn("비밀번호 재설정")
+    new_le = field("새 비밀번호", echo=True)
+    new2_le = field("새 비밀번호 확인", echo=True)
+    err = err_label(height=32)
+    btn = accent_btn("비밀번호 재설정")
 
     for w in (user_le, name_le, bname_le, new_le, new2_le):
         lay.addWidget(w)
@@ -209,7 +210,7 @@ def build_forgot_page():
     lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(8)
 
-    tab_row    = QHBoxLayout()
+    tab_row = QHBoxLayout()
     tab_id_btn = QPushButton("아이디 찾기")
     tab_pw_btn = QPushButton("비밀번호 재설정")
     for btn in (tab_id_btn, tab_pw_btn):

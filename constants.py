@@ -60,10 +60,7 @@ QScrollBar:vertical{{background:{C['bg']};width:8px;border-radius:4px;}}
 QScrollBar::handle:vertical{{background:{C['border']};border-radius:4px;min-height:30px;}}
 QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}
 QScrollBar:horizontal{{height:0;}}
-QCheckBox{{background:transparent;spacing:4px;margin-left:4px;}}
-QCheckBox::indicator{{width:12px;height:12px;border:1.5px solid {C['border']};border-radius:3px;background:{C['card']};}}
-QCheckBox::indicator:checked{{background:{C['accent']};border-color:{C['accent']};image:none;}}
-QCheckBox::indicator:hover{{border-color:{C['accent']};}}
+QCheckBox{{background:transparent;spacing:6px;margin-left:4px;}}
 QLabel#fl{{color:{C['muted']};font-size:11px;background:transparent;}}
 QLabel#fv{{color:{C['text']};font-size:13px;background:transparent;}}
 QLabel#mu{{color:{C['muted']};font-size:11px;background:transparent;}}

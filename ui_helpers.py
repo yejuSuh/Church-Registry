@@ -1,10 +1,73 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QPushButton,
     QLineEdit, QComboBox, QCheckBox, QTextEdit,
+    QStyle, QStyleOptionButton,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QRectF
+from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen
 
 from constants import C
+
+# Shared rounded-checkbox look, used by both the list_view export column
+# (drawn via QStyledItemDelegate) and StyledCheckBox below (drawn via paintEvent).
+CB_SZ = 15   # checkbox size in px
+CB_RD = 3    # corner radius
+
+
+def draw_checkbox(painter, rect, checked: bool):
+    """Draw a rounded checkbox centered in rect. Works for delegate paint and widget paintEvent."""
+    cx = rect.x() + (rect.width()  - CB_SZ) // 2
+    cy = rect.y() + (rect.height() - CB_SZ) // 2
+    rf = QRectF(cx, cy, CB_SZ, CB_SZ)
+
+    path = QPainterPath()
+    path.addRoundedRect(rf, CB_RD, CB_RD)
+
+    painter.save()
+    painter.setRenderHint(painter.RenderHint.Antialiasing)
+    if checked:
+        painter.fillPath(path, QColor(C['accent']))
+        m = 3
+        painter.setPen(QPen(QColor('#FFFFFF'), 1.8,
+                            Qt.PenStyle.SolidLine,
+                            Qt.PenCapStyle.RoundCap,
+                            Qt.PenJoinStyle.RoundJoin))
+        painter.drawLine(cx + m,            cy + CB_SZ // 2,
+                         cx + CB_SZ // 2 - 1, cy + CB_SZ - m - 1)
+        painter.drawLine(cx + CB_SZ // 2 - 1, cy + CB_SZ - m - 1,
+                         cx + CB_SZ - m,   cy + m)
+    else:
+        painter.fillPath(path, QColor('#FFFFFF'))
+        painter.setPen(QPen(QColor(C['border']), 1.2))
+        painter.drawPath(path)
+    painter.restore()
+
+
+class StyledCheckBox(QCheckBox):
+    """QCheckBox using the same rounded, hand-drawn indicator as the list_view export column."""
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        opt = QStyleOptionButton()
+        self.initStyleOption(opt)
+
+        # Compute both rects from the same unmodified opt.rect first --
+        # mutating opt.rect before the second lookup would shift it.
+        ind_rect = self.style().subElementRect(
+            QStyle.SubElement.SE_CheckBoxIndicator, opt, self
+        )
+        label_rect = self.style().subElementRect(
+            QStyle.SubElement.SE_CheckBoxContents, opt, self
+        )
+
+        label_opt = QStyleOptionButton(opt)
+        label_opt.rect = label_rect
+        self.style().drawControl(QStyle.ControlElement.CE_CheckBoxLabel, label_opt, painter, self)
+
+        draw_checkbox(painter, ind_rect, self.isChecked())
+        painter.end()
 
 
 def fv(row, k):
@@ -53,7 +116,7 @@ def mk_combo(values, val=""):
     return cb
 
 def mk_check(label, val=""):
-    cb = QCheckBox(label)
+    cb = StyledCheckBox(label)
     cb.setChecked(str(val).strip() in ("Y", "1") or val is True or val == 1)
     return cb
 
