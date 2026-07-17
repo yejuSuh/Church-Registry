@@ -21,6 +21,7 @@ class MainWindow(QMainWindow):
     def __init__(self, db):
         super().__init__()
         self.db = db
+        self.logged_out = False   # church_app.py checks this to re-show the login page
         self.setWindowTitle(APP_TITLE)
         self.resize(1300, 820)
         self.setMinimumSize(960, 600)
@@ -57,13 +58,11 @@ class MainWindow(QMainWindow):
             nb.setCursor(Qt.CursorShape.PointingHandCursor)
             sbl.addWidget(nb)
 
-        # admin-only nav
-        self.nav_users = None
-        if session.user_level == "admin":
-            self.nav_users = QPushButton("👤  계정 관리")
-            self.nav_users.setObjectName("nav_btn")
-            self.nav_users.setCursor(Qt.CursorShape.PointingHandCursor)
-            sbl.addWidget(self.nav_users)
+        # visible to everyone; the view itself limits non-admins to their own account
+        self.nav_users = QPushButton("👤  계정 관리")
+        self.nav_users.setObjectName("nav_btn")
+        self.nav_users.setCursor(Qt.CursorShape.PointingHandCursor)
+        sbl.addWidget(self.nav_users)
 
         sbl.addSpacing(12)
         self._count_lbl = QLabel()
@@ -72,17 +71,17 @@ class MainWindow(QMainWindow):
         sbl.addWidget(self._count_lbl)
 
         sbl.addStretch()
-        user_lbl = QLabel(f"👤 {session.name} ({session.baptism_name})")
-        user_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        user_lbl.setStyleSheet("font-size:12px;color:#8EAFD4;background:transparent;")
-        user_lbl.setWordWrap(True)
-        sbl.addWidget(user_lbl)
-        # sbl.addSpacing(2)
-        # db_lbl = QLabel(os.path.basename(DB_PATH))
-        # db_lbl.setStyleSheet("font-size:8px;color:#5A7FA8;background:transparent;")
-        # db_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # db_lbl.setWordWrap(True)
-        # sbl.addWidget(db_lbl)
+        self._user_lbl = QLabel()
+        self._user_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._user_lbl.setStyleSheet("font-size:12px;color:#8EAFD4;background:transparent;")
+        self._user_lbl.setWordWrap(True)
+        sbl.addWidget(self._user_lbl)
+        self._refresh_user_lbl()
+
+        self.logout_btn = QPushButton("🚪  로그아웃")
+        self.logout_btn.setObjectName("nav_btn")
+        self.logout_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        sbl.addWidget(self.logout_btn)
         rl.addWidget(sb)
 
         # ── Main stack ───────────────────────────────────────────────────────
@@ -110,13 +109,17 @@ class MainWindow(QMainWindow):
         # ── Signals ──────────────────────────────────────────────────────────
         self.nav_list.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         self.nav_stats.clicked.connect(lambda: self.stack.setCurrentIndex(1))
-        if self.nav_users:
-            self.nav_users.clicked.connect(lambda: self._open_user_mgmt())
+        self.nav_users.clicked.connect(lambda: self._open_user_mgmt())
         self.list_view.add_btn.clicked.connect(self._add)
         self.list_view.row_selected.connect(self.detail_view.load)
         self.detail_view.edit_sig.connect(self._edit)
         self.detail_view.delete_sig.connect(self._delete)
         self.detail_view.add_sig.connect(self._add_member)
+        self.logout_btn.clicked.connect(lambda: self._logout())
+        self.user_mgmt_view.session_changed.connect(self._refresh_user_lbl)
+        # own account was deactivated/deleted -- the session is no longer
+        # valid, so skip the confirmation and go straight back to login
+        self.user_mgmt_view.logout_requested.connect(lambda: self._logout(confirm=False))
 
         # ── Keyboard shortcuts ────────────────────────────────────────────────
         QShortcut(QKeySequence("Ctrl+N"), self).activated.connect(self._add)
@@ -133,9 +136,19 @@ class MainWindow(QMainWindow):
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
-    def _open_user_mgmt(self):
-        if session.user_level != "admin":
+    def _refresh_user_lbl(self):
+        self._user_lbl.setText(f"👤 {session.name} ({session.baptism_name})")
+
+    def _logout(self, confirm=True):
+        if confirm and QMessageBox.question(
+            self, "로그아웃", "로그아웃 하시겠습니까?"
+        ) != QMessageBox.StandardButton.Yes:
             return
+        session.username = session.name = session.baptism_name = session.user_level = ""
+        self.logged_out = True
+        self.close()
+
+    def _open_user_mgmt(self):
         self.user_mgmt_view._load()   # refresh data each time
         self.stack.setCurrentIndex(2)
 

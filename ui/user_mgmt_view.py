@@ -3,10 +3,11 @@ from PyQt6.QtWidgets import (
     QLabel, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
     QDialog, QGridLayout, QLineEdit, QMessageBox,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor
 
 from core.constants import C
+from core.session import session
 from ui.ui_helpers import mk_btn, mk_combo, vbox_field
 
 
@@ -52,6 +53,10 @@ class UserFormDialog(QDialog):
         g.addWidget(vbox_field("세례명", self._bname_le), 2, 1)
 
         self._level_cb = mk_combo(["staff", "admin"], user["user_level"] if is_edit else "staff")
+        if session.user_level != "admin":
+            # non-admins only ever edit their own account and must not be
+            # able to promote themselves
+            self._level_cb.setEnabled(False)
         g.addWidget(vbox_field("권한", self._level_cb), 3, 0)
 
         lay.addLayout(g)
@@ -106,6 +111,9 @@ class UserMgmtView(QWidget):
     _COLS    = ["아이디", "이름", "세례명", "권한", "상태", "마지막 로그인", "작업"]
     _COL_W   = [120, 100, 100, 70, 65, 150]   # last col stretches
 
+    session_changed  = pyqtSignal()   # own name/baptism_name edited
+    logout_requested = pyqtSignal()   # own account deactivated or deleted
+
     def __init__(self, db):
         super().__init__()
         self.db = db
@@ -122,9 +130,11 @@ class UserMgmtView(QWidget):
         title.setStyleSheet(
             f"font-size:15px;font-weight:bold;color:{C['text']};background:transparent;"
         )
-        add_btn = mk_btn("+ 계정 추가", "btn_accent")
-        add_btn.clicked.connect(self._add)
-        tbl.addWidget(title); tbl.addStretch(); tbl.addWidget(add_btn)
+        tbl.addWidget(title); tbl.addStretch()
+        if session.user_level == "admin":
+            add_btn = mk_btn("+ 계정 추가", "btn_accent")
+            add_btn.clicked.connect(self._add)
+            tbl.addWidget(add_btn)
         lay.addWidget(tb)
 
         self._table = QTableWidget()
@@ -167,6 +177,11 @@ class UserMgmtView(QWidget):
 
     def _action_cell(self, u):
         cell = QWidget()
+        # non-admins may only act on their own account -- other rows get an
+        # empty cell so the buttons aren't even visible
+        if session.user_level != "admin" and u["username"] != session.username:
+            return cell
+
         hl = QHBoxLayout(cell)
         hl.setContentsMargins(4, 2, 4, 2)
         hl.setSpacing(4)
@@ -200,21 +215,43 @@ class UserMgmtView(QWidget):
         UserFormDialog(self, self.db, on_save=self._load).exec()
 
     def _edit(self, user):
-        UserFormDialog(self, self.db, user=user, on_save=self._load).exec()
+        def done():
+            self._load()
+            if user["username"] == session.username:
+                u = self.db.get_user(session.username)
+                session.name         = u["name"]
+                session.baptism_name = u["baptism_name"]
+                self.session_changed.emit()
+        UserFormDialog(self, self.db, user=user, on_save=done).exec()
 
     def _toggle(self, username, currently_active):
+        is_self = username == session.username
         if currently_active:
+            if is_self and QMessageBox.question(
+                self, "계정 비활성화",
+                "본인 계정을 비활성화하면 로그아웃되며 다시 로그인할 수 없습니다.\n계속하시겠습니까?",
+            ) != QMessageBox.StandardButton.Yes:
+                return
             self.db.deactivate_user(username)
+            if is_self:
+                self.logout_requested.emit()
+                return
         else:
             self.db.activate_user(username)
         self._load()
 
     def _delete(self, username):
-        if QMessageBox.question(
-            self, "계정 삭제", f"'{username}' 계정을 영구 삭제하시겠습니까?"
-        ) != QMessageBox.StandardButton.Yes:
+        is_self = username == session.username
+        msg = (
+            "본인 계정을 영구 삭제하시겠습니까?\n삭제 후 즉시 로그아웃됩니다."
+            if is_self else f"'{username}' 계정을 영구 삭제하시겠습니까?"
+        )
+        if QMessageBox.question(self, "계정 삭제", msg) != QMessageBox.StandardButton.Yes:
             return
         if not self.db.delete_user(username):
             QMessageBox.warning(self, "삭제 불가", "마지막 관리자 계정은 삭제할 수 없습니다.")
+            return
+        if is_self:
+            self.logout_requested.emit()
             return
         self._load()

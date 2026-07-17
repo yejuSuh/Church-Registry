@@ -18,10 +18,16 @@ if __name__ == "__main__":
 
     db = DB(DB_PATH)
 
-    login = LoginDialog(db)
-    if login.exec() != LoginDialog.DialogCode.Accepted:
-        sys.exit(0)
+    # Login → main window loop: logging out closes the main window and brings
+    # the login/signup page back up instead of quitting the app.
+    while True:
+        login = LoginDialog(db)
+        if login.exec() != LoginDialog.DialogCode.Accepted:
+            break
 
-    win = MainWindow(db)
-    win.show()
-    sys.exit(app.exec())
+        win = MainWindow(db)
+        win.show()
+        app.exec()
+        if not win.logged_out:
+            break
+    sys.exit(0)
