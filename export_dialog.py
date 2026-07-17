@@ -213,7 +213,7 @@ class ExportDialog(QDialog):
         )
         title_style = ParagraphStyle(
             "t", fontName=font_name, fontSize=13,
-            textColor=colors.HexColor("#2D4A6A"), spaceAfter=6,
+            textColor=colors.HexColor(C['sidebar']), spaceAfter=6,
         )
         elements = [
             Paragraph("보스톤 한인 천주교  |  교적 목록", title_style),
@@ -224,17 +224,17 @@ class ExportDialog(QDialog):
             ("FONTNAME",      (0, 0), (-1, -1), font_name),
             ("FONTSIZE",      (0, 0), (-1,  0), 9),
             ("FONTSIZE",      (0, 1), (-1, -1), 8),
-            ("BACKGROUND",    (0, 0), (-1,  0), colors.HexColor("#2D4A6A")),
+            ("BACKGROUND",    (0, 0), (-1,  0), colors.HexColor(C['sidebar'])),
             ("TEXTCOLOR",     (0, 0), (-1,  0), colors.white),
             ("ALIGN",         (0, 0), (-1,  0), "CENTER"),
             ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
             ("TOPPADDING",    (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
             ("LEFTPADDING",   (0, 0), (-1, -1), 5),
-            ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#D0D8E4")),
+            ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor(C['border'])),
         ]
         for i in range(1, len(data)):
-            bg = colors.HexColor("#F8FAFC") if i % 2 == 0 else colors.white
+            bg = colors.HexColor(C['row_alt']) if i % 2 == 0 else colors.white
             cmds.append(("BACKGROUND", (0, i), (-1, i), bg))
         tbl = Table(data, colWidths=self.COL_W, repeatRows=1)
         tbl.setStyle(TableStyle(cmds))

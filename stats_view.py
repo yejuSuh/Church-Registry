@@ -23,7 +23,7 @@ class StatsView(QWidget):
             ("👥  활성 교인",  s["active"],   C["accent"]),
             ("😴  냉담자",     s["lapsed"],   C["orange"]),
             ("✝  세례 기록",  s["baptisms"], C["success"]),
-            ("💒  혼인 기록",  s["weddings"], "#8E44AD"),
+            ("💒  혼인 기록",  s["weddings"], C["plum"]),
         ]:
             card = QWidget(); card.setObjectName("stat_card"); card.setFixedSize(170, 95)
             cl = QVBoxLayout(card); cl.setContentsMargins(8, 8, 8, 8)

@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QStyle, QStyleOptionButton,
 )
 from PyQt6.QtCore import Qt, QRectF
-from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 
 from constants import C
 
@@ -106,14 +106,42 @@ def mk_entry(val=""):
     e.setText(str(val).strip() if val else "")
     return e
 
+class _NoScrollComboBox(QComboBox):
+    """A QComboBox that only responds to the mouse wheel while it has focus.
+    Plain QComboBox changes its selected value on any wheel scroll under the
+    cursor -- inside this app's scrollable forms (ParishionerForm, the
+    sacrament intake dialogs), that means scrolling past a dropdown silently
+    corrupts its value. Click or tab into it first, same as any other field."""
+
+    def wheelEvent(self, event):
+        if self.hasFocus():
+            super().wheelEvent(event)
+        else:
+            event.ignore()
+
 def mk_combo(values, val=""):
-    cb = QComboBox()
+    cb = _NoScrollComboBox()
     cb.addItems(values)
     if val:
         i = cb.findText(str(val).strip(), Qt.MatchFlag.MatchContains)
         if i >= 0:
             cb.setCurrentIndex(i)
     return cb
+
+def mk_regno(text):
+    """A person's 교적번호 rendered like a stamped ledger plate -- the one
+    place this app spends its typographic boldness (see constants.py's
+    design-token comment). Everywhere else stays on the plain UI face."""
+    lbl = QLabel(text)
+    lbl.setObjectName("regno")
+    f = lbl.font()
+    f.setFamily("Georgia")
+    f.setPointSize(12)
+    f.setBold(True)
+    f.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 1.4)
+    lbl.setFont(f)
+    return lbl
+
 
 def mk_check(label, val=""):
     cb = StyledCheckBox(label)

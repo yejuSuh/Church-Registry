@@ -218,6 +218,10 @@ class ListView(QWidget):
         self._export_mode = True
         # Add checkbox column
         self._hdr.setStretchLastSection(False)
+        # "관계" (col 5) was filling leftover width via stretch-last-section;
+        # keep it stretching explicitly so the checkbox column stays flush
+        # against the right edge instead of leaving a blank gap after it.
+        self._hdr.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
         self.table.setColumnCount(7)
         self.table.setHorizontalHeaderItem(6, QTableWidgetItem(""))
         self._hdr.setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
@@ -235,6 +239,7 @@ class ListView(QWidget):
         self.table.blockSignals(True)
         self.table.setColumnCount(6)
         self.table.blockSignals(False)
+        self._hdr.setSectionResizeMode(5, QHeaderView.ResizeMode.Interactive)
         self._hdr.setStretchLastSection(True)
         self._hdr.disable_check()
         self.export_btn.setVisible(True)

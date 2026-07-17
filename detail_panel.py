@@ -5,8 +5,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 
-from constants import C
-from ui_helpers import fv, mk_btn, shdr
+from constants import C, BTN_RADIUS
+from ui_helpers import fv, mk_btn, shdr, mk_regno
 from sacraments_tab import SacramentsTab
 from move_records_tab import MoveRecordsTab
 
@@ -62,17 +62,20 @@ class DetailPanel(QWidget):
             name_txt += f"  ({bname})"
         nl = QLabel(name_txt)
         nl.setStyleSheet("font-size:17px;font-weight:bold;")
-        sl = QLabel(f"교적번호: {v('display_id')}  |  관계: {v('relation')}  |  세대주: {v('head_of_household')}")
-        sl.setStyleSheet("color:#BDD7EE;font-size:10px;")
+        meta_row = QHBoxLayout(); meta_row.setContentsMargins(0, 2, 0, 0); meta_row.setSpacing(8)
+        meta_row.addWidget(mk_regno(v('display_id')))
+        meta_txt = QLabel(f"관계: {v('relation')}  |  세대주: {v('head_of_household')}")
+        meta_txt.setStyleSheet("color:#BDD7EE;font-size:10px;background:transparent;")
+        meta_row.addWidget(meta_txt); meta_row.addStretch()
         close_btn = QPushButton("✕")
         close_btn.setFixedSize(24, 24)
         close_btn.setStyleSheet(
             "QPushButton{background:transparent;color:white;font-size:14px;"
-            "border:none;border-radius:4px;padding:0;}"
+            f"border:none;border-radius:{BTN_RADIUS};padding:0;}}"
             "QPushButton:hover{background:rgba(255,255,255,0.2);}"
         )
         close_btn.clicked.connect(self.show_empty)
-        info_col = QVBoxLayout(); info_col.addWidget(nl); info_col.addWidget(sl)
+        info_col = QVBoxLayout(); info_col.addWidget(nl); info_col.addLayout(meta_row)
         hl.addLayout(info_col); hl.addStretch(); hl.addWidget(close_btn, 0, Qt.AlignmentFlag.AlignTop)
         self._l.addWidget(hdr)
 
@@ -146,7 +149,7 @@ class DetailPanel(QWidget):
                 "QHeaderView::section{"
                 f"background:transparent;color:{C['muted']};"
                 "font-size:11px;font-weight:normal;"
-                "border:none;border-bottom:1px solid #D0D8E4;padding:2px 6px;}"
+                f"border:none;border-bottom:1px solid {C['border']};padding:2px 6px;}}"
             )
             tbl.verticalHeader().setVisible(False)
             tbl.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)

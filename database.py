@@ -10,6 +10,10 @@ class DB:
     def _conn(self):
         c = sqlite3.connect(self.path)
         c.row_factory = sqlite3.Row
+        # SQLite has FK enforcement OFF by default per-connection; without this,
+        # the schema's ON DELETE CASCADE / SET NULL rules are silently ignored
+        # and deletes leave orphaned rows behind (see family/member_status).
+        c.execute("PRAGMA foreign_keys = ON")
         return c
 
     def _init_users(self):
@@ -211,6 +215,24 @@ class DB:
                 (int(pno),),
             ).fetchone()
 
+    def search_people(self, q, limit=10):
+        # Used by PersonPicker to match godparent/sponsor/father/mother/spouse
+        # fields on sacrament intake forms against existing parishioners.
+        # Restricted to real registered members (numeric reg_area), same as
+        # search() -- matching a placeholder/historical row isn't useful here.
+        q = (q or "").strip()
+        if not q:
+            return []
+        sql = (
+            self._MEMBER_SELECT + " WHERE m.reg_area GLOB '[0-9]*'"
+            " AND (TRIM(m.name_korean) LIKE ? OR TRIM(m.name_english) LIKE ?"
+            " OR TRIM(m.baptismal_name) LIKE ?)"
+            " ORDER BY m.reg_area, CAST(m.reg_code AS INTEGER) LIMIT ?"
+        )
+        p = [f"%{q}%"] * 3 + [limit]
+        with self._conn() as c:
+            return c.execute(sql, p).fetchall()
+
     def household(self, head, exclude=None):
         with self._conn() as c:
             base = (
@@ -392,6 +414,13 @@ class DB:
 
     # ── Move-in / Move-out records ───────────────────────────────────────────
 
+    def get_communion_records(self, pno):
+        with self._conn() as c:
+            return c.execute(
+                "SELECT * FROM communion WHERE member_id=? ORDER BY communion_date",
+                (int(pno),),
+            ).fetchall()
+
     def get_movein_record(self, pno):
         with self._conn() as c:
             return c.execute(
@@ -425,6 +454,72 @@ class DB:
         sql = f"INSERT INTO wedding ({','.join(cols)}) VALUES ({','.join(['?']*len(cols))})"
         with self._conn() as c:
             c.execute(sql, list(data.values())); c.commit()
+
+    def create_communion_record(self, data):
+        cols = list(data.keys())
+        sql = f"INSERT INTO communion ({','.join(cols)}) VALUES ({','.join(['?']*len(cols))})"
+        with self._conn() as c:
+            c.execute(sql, list(data.values())); c.commit()
+
+    def search_weddings(self, name="", member_id=None, limit=10):
+        # Used by the adult confirmation/initiation intake forms to check for
+        # an existing wedding row before creating a new one: first by the
+        # applicant's own member_id (already recorded as groom/bride), then
+        # by a name match against the free-text spouse name.
+        with self._conn() as c:
+            if member_id:
+                rows = c.execute(
+                    "SELECT * FROM wedding WHERE groom_member_id=? OR bride_member_id=?"
+                    " ORDER BY wedding_date DESC LIMIT ?",
+                    (int(member_id), int(member_id), limit),
+                ).fetchall()
+                if rows:
+                    return rows
+            name = (name or "").strip()
+            if name:
+                return c.execute(
+                    "SELECT * FROM wedding WHERE groom_name LIKE ? OR bride_name LIKE ?"
+                    " ORDER BY wedding_date DESC LIMIT ?",
+                    (f"%{name}%", f"%{name}%", limit),
+                ).fetchall()
+        return []
+
+    def update_member_fields(self, member_id, data):
+        # Partial update of `member` columns only (dynamic SET clause, like
+        # create_baptism/create_confirmation_record). Used by sacrament intake
+        # dialogs to fill in applicant details captured on the paper forms
+        # (place_of_birth, occupation, marital_status, etc.) without touching
+        # `family` the way the full update() method does.
+        if not data:
+            return
+        cols = list(data.keys())
+        set_clause = ",".join(f"{c}=?" for c in cols)
+        with self._conn() as c:
+            c.execute(
+                f"UPDATE member SET {set_clause} WHERE member_id=?",
+                list(data.values()) + [int(member_id)],
+            )
+            c.commit()
+
+    def link_child_to_parent(self, member_id, head_of_household, relation):
+        # Sets/updates the child's family row so a matched father/mother
+        # actually links the household, not just the FK on the sacrament row.
+        with self._conn() as c:
+            existing = c.execute(
+                "SELECT family_id FROM family WHERE member_id=?", (int(member_id),)
+            ).fetchone()
+            if existing:
+                c.execute(
+                    "UPDATE family SET head_of_household=?, relation=? WHERE member_id=?",
+                    (head_of_household, relation, int(member_id)),
+                )
+            else:
+                c.execute(
+                    "INSERT INTO family (member_id, head_of_household, relation, dues_paying)"
+                    " VALUES (?,?,?,0)",
+                    (int(member_id), head_of_household, relation),
+                )
+            c.commit()
 
     def create_death_record(self, data):
         # Inserts into status_death (new schema); also marks member as deceased

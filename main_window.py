@@ -40,7 +40,15 @@ class MainWindow(QMainWindow):
             l.setAlignment(Qt.AlignmentFlag.AlignCenter)
             l.setStyleSheet(style)
             sbl.addWidget(l)
-        sbl.addSpacing(16)
+
+        # a single quiet flourish under the wordmark -- a seal-ink rule,
+        # like the gilt line under a ledger's spine title
+        rule = QWidget(); rule.setFixedHeight(2)
+        rule.setStyleSheet(f"background:{C['accent']};border-radius:1px;")
+        rule_row = QHBoxLayout(); rule_row.setContentsMargins(48, 8, 48, 0)
+        rule_row.addWidget(rule)
+        sbl.addLayout(rule_row)
+        sbl.addSpacing(14)
 
         self.nav_list  = QPushButton("👥  교적 목록")
         self.nav_stats = QPushButton("📊  현황 통계")

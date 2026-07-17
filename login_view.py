@@ -51,11 +51,14 @@ def field(placeholder, echo=False):
 
 
 def err_label(height=32):
+    # Hidden by default so it doesn't reserve blank space when there's no
+    # message -- set_msg() shows it, and clearing the text hides it again.
     lbl = QLabel("")
     lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
     lbl.setStyleSheet(f"color:{C['danger']};font-size:13px;background:transparent;")
     lbl.setWordWrap(True)
     lbl.setFixedHeight(height)
+    lbl.setVisible(False)
     return lbl
 
 
@@ -69,6 +72,7 @@ def set_msg(label, text, ok=False):
     color = C['accent'] if ok else C['danger']
     label.setStyleSheet(f"color:{color};font-size:13px;background:transparent;")
     label.setText(text)
+    label.setVisible(bool(text))
 
 
 def accent_btn(label_text, height=40):
