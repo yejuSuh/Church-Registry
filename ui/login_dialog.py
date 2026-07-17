@@ -1,9 +1,9 @@
 from PyQt6.QtWidgets import QDialog, QLabel, QStackedWidget, QVBoxLayout
 from PyQt6.QtCore import Qt
 
-from constants import C, FONT_LEDGER, BTN_RADIUS
-from session import session
-from login_view import (
+from core.constants import C, FONT_LEDGER, BTN_RADIUS
+from core.session import session
+from ui.login_view import (
     DLG_SS, set_msg,
     build_login_page, build_signup_page, build_forgot_page,
 )

@@ -3,8 +3,8 @@ from PyQt6.QtWidgets import (
     QLabel, QGridLayout, QMenu,
 )
 
-from constants import C
-from ui_helpers import fv, mk_btn, shdr
+from core.constants import C
+from ui.ui_helpers import fv, mk_btn, shdr
 
 
 def _married_disp(rec):
@@ -15,10 +15,10 @@ def _married_disp(rec):
     except Exception:
         v = None
     return "예" if v == 1 else ("아니오" if v == 0 else "")
-from sacrament_forms import (
+from forms.sacrament_forms import (
     BaptismForm, ConfirmationForm, WeddingForm, DeathForm,
 )
-from intake_forms import (
+from forms.intake_forms import (
     AdultConfirmationForm, AdultInitiationForm,
     InfantBaptismForm, YouthConfirmationForm,
 )

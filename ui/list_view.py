@@ -7,9 +7,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QEvent, QTimer
 from PyQt6.QtGui import QColor
 
-from constants import C, AREA_DISP
-from ui_helpers import mk_btn, draw_checkbox
-from export_dialog import ExportDialog
+from core.constants import C, AREA_DISP
+from ui.ui_helpers import mk_btn, draw_checkbox
+from forms.export_dialog import ExportDialog
 
 
 class _RowCheckDelegate(QStyledItemDelegate):

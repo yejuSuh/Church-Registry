@@ -4,9 +4,9 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-from constants import C
-from ui_helpers import fv, mk_btn, mk_entry, mk_combo, mk_check, vbox_field, shdr, ge
-from person_picker import PersonPicker, WeddingMatchDialog
+from core.constants import C
+from ui.ui_helpers import fv, mk_btn, mk_entry, mk_combo, mk_check, vbox_field, shdr, ge
+from forms.person_picker import PersonPicker, WeddingMatchDialog
 
 
 # ── Shared building blocks ───────────────────────────────────────────────────

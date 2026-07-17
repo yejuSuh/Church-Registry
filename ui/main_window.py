@@ -7,14 +7,14 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QSettings
 from PyQt6.QtGui import QShortcut, QKeySequence
 
-from constants import APP_TITLE, C, DB_PATH
-from session import session
-from ui_helpers import mk_btn
-from parishioner_form import ParishionerForm
-from detail_panel import DetailPanel
-from list_view import ListView
-from stats_view import StatsView
-from user_mgmt_view import UserMgmtView
+from core.constants import APP_TITLE, C, DB_PATH
+from core.session import session
+from ui.ui_helpers import mk_btn
+from forms.parishioner_form import ParishionerForm
+from ui.detail_panel import DetailPanel
+from ui.list_view import ListView
+from ui.stats_view import StatsView
+from ui.user_mgmt_view import UserMgmtView
 
 
 class MainWindow(QMainWindow):

@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-from constants import C
+from core.constants import C
 
 # ── Dialog-scoped stylesheet ──────────────────────────────────────────────────
 DLG_SS = f"""

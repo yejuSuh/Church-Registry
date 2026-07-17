@@ -5,10 +5,15 @@ Supports registration, sacrament records, household grouping, move-in/out histor
 
 ## System Components
 
-1. **`constants.py`**: Theme colors, stylesheet, area/relation lists, and database path (`parish.db`).
-2. **`database.py`**: All SQLite queries — parishioners, sacraments, move records, statistics.
-3. **`views.py`**: PyQt6 UI — list view, detail panel (tabbed), forms, export dialog.
-4. **`church_app.py`**: Entry point — initializes the app, checks for the database file, launches the window.
+- **`church_app.py`**: Entry point — initializes the app, checks for the database file, launches the window.
+- **`core/`**: Non-UI logic.
+  - `constants.py`: Theme colors, stylesheet, area/relation lists, and database path (`parish.db`).
+  - `database.py`: All SQLite queries — parishioners, sacraments, move records, statistics.
+  - `session.py`: The current logged-in user.
+- **`ui/`**: Main app screens and shared widgets — `views.py` (top-level exports), `main_window.py`, list/detail/stats/user-management views, the login screens, and `ui_helpers.py`.
+- **`forms/`**: Modal dialogs for creating/editing records — the parishioner form, the sacrament application intake forms (adult confirmation, RCIA, infant baptism, youth confirmation), quick-entry sacrament forms, the person-picker widget, and the export dialog.
+- **`assets/`**: Static files (icons).
+- **`docs/`**: Database schema reference and other project documentation.
 
 ## Features
 

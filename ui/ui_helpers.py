@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QRectF
 from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 
-from constants import C
+from core.constants import C
 
 # Shared rounded-checkbox look, used by both the list_view export column
 # (drawn via QStyledItemDelegate) and StyledCheckBox below (drawn via paintEvent).

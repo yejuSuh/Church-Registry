@@ -1,9 +1,9 @@
 import sys, os
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
-from constants import DB_PATH, SS
-from database import DB
-from views import LoginDialog, MainWindow
+from core.constants import DB_PATH, SS
+from core.database import DB
+from ui.views import LoginDialog, MainWindow
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

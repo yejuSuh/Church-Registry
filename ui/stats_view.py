@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from PyQt6.QtCore import Qt
 
-from constants import C
+from core.constants import C
 
 
 class StatsView(QWidget):

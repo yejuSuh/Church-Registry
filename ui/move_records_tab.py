@@ -3,8 +3,8 @@ from PyQt6.QtWidgets import (
     QLabel, QGridLayout,
 )
 
-from constants import C
-from ui_helpers import fv, shdr
+from core.constants import C
+from ui.ui_helpers import fv, shdr
 
 
 class MoveRecordsTab(QWidget):

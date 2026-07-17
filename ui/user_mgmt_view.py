@@ -6,8 +6,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 
-from constants import C
-from ui_helpers import mk_btn, mk_combo, vbox_field
+from core.constants import C
+from ui.ui_helpers import mk_btn, mk_combo, vbox_field
 
 
 class UserFormDialog(QDialog):

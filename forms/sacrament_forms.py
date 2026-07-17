@@ -3,8 +3,8 @@ from PyQt6.QtWidgets import (
     QGridLayout, QMessageBox,
 )
 
-from constants import C
-from ui_helpers import mk_btn, mk_entry, mk_combo, vbox_field, ge
+from core.constants import C
+from ui.ui_helpers import mk_btn, mk_entry, mk_combo, vbox_field, ge
 
 
 class BaptismForm(QDialog):

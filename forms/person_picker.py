@@ -4,8 +4,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-from constants import C
-from ui_helpers import fv, mk_btn, mk_entry, vbox_field, shdr
+from core.constants import C
+from ui.ui_helpers import fv, mk_btn, mk_entry, vbox_field, shdr
 
 
 class PersonPicker(QWidget):

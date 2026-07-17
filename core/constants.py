@@ -7,11 +7,13 @@ if getattr(sys, 'frozen', False):
     # Running as a PyInstaller bundle — database lives next to the executable
     _DIR = os.path.dirname(sys.executable)
 else:
-    # Running as a plain Python script
-    _DIR = os.path.dirname(os.path.abspath(__file__))
+    # Running as a plain Python script. This file lives in core/, one level
+    # below the project root where parish.db and assets/ actually live, so
+    # go up one level rather than using this file's own directory.
+    _DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 DB_PATH = os.path.join(_DIR, "parish.db")
-_ARROW_SVG   = os.path.join(_DIR, "arrow_down.svg").replace("\\", "/")
+_ARROW_SVG   = os.path.join(_DIR, "assets", "arrow_down.svg").replace("\\", "/")
 
 # ── Design tokens ─────────────────────────────────────────────────────────────
 C = dict(

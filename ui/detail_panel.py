@@ -5,10 +5,10 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 
-from constants import C, BTN_RADIUS
-from ui_helpers import fv, mk_btn, shdr, mk_regno
-from sacraments_tab import SacramentsTab
-from move_records_tab import MoveRecordsTab
+from core.constants import C, BTN_RADIUS
+from ui.ui_helpers import fv, mk_btn, shdr, mk_regno
+from ui.sacraments_tab import SacramentsTab
+from ui.move_records_tab import MoveRecordsTab
 
 
 class DetailPanel(QWidget):

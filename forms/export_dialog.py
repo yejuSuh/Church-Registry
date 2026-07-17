@@ -9,8 +9,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
 
-from constants import C
-from ui_helpers import mk_btn
+from core.constants import C
+from ui.ui_helpers import mk_btn
 
 
 class PrinterDiscoveryThread(QThread):

@@ -5,8 +5,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-from constants import C, AREA_DISP, AREA_MAP, RELATIONS
-from ui_helpers import fv, mk_btn, shdr, vbox_field, mk_entry, mk_combo, mk_check, ge
+from core.constants import C, AREA_DISP, AREA_MAP, RELATIONS
+from ui.ui_helpers import fv, mk_btn, shdr, vbox_field, mk_entry, mk_combo, mk_check, ge
 
 
 class ParishionerForm(QDialog):
