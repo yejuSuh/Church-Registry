@@ -22,7 +22,7 @@ class BaptismForm(QDialog):
         def add(lbl, w, r, c, span=1):
             g.addWidget(vbox_field(lbl, w, C['card']), r, c, 1, span); return w
 
-        self.no_e     = add("세례 번호",           mk_entry(), 0, 0)
+        self.no_e     = add("세례 번호 *",         mk_entry(), 0, 0)
         self.date_e   = add("세례일 (YYYY/MM/DD)", mk_entry(), 0, 1)
         self.church_e = add("세례 성당",           mk_entry(), 0, 2, 2)
         self.off_e    = add("집전자",              mk_entry(), 1, 0)
@@ -35,6 +35,9 @@ class BaptismForm(QDialog):
         bbl.addWidget(cb); bbl.addWidget(sb); outer.addWidget(bb)
 
     def _save(self):
+        if not ge(self.no_e):
+            QMessageBox.warning(self, "오류", "세례 번호를 입력하세요.")
+            return
         try:
             self.db.create_baptism(dict(
                 member_id=self.pno, baptism_no=ge(self.no_e),
@@ -63,7 +66,7 @@ class ConfirmationForm(QDialog):
         def add(lbl, w, r, c, span=1):
             g.addWidget(vbox_field(lbl, w, C['card']), r, c, 1, span); return w
 
-        self.no_e     = add("견진 번호",           mk_entry(), 0, 0)
+        self.no_e     = add("견진 번호 *",         mk_entry(), 0, 0)
         self.date_e   = add("견진일 (YYYY/MM/DD)", mk_entry(), 0, 1)
         self.church_e = add("견진 성당",           mk_entry(), 0, 2, 2)
         self.off_e    = add("집전자",              mk_entry(), 1, 0, 2)
@@ -75,6 +78,9 @@ class ConfirmationForm(QDialog):
         bbl.addWidget(cb); bbl.addWidget(sb); outer.addWidget(bb)
 
     def _save(self):
+        if not ge(self.no_e):
+            QMessageBox.warning(self, "오류", "견진 번호를 입력하세요.")
+            return
         try:
             self.db.create_confirmation_record(dict(
                 member_id=self.pno, confirmation_no=ge(self.no_e),
@@ -102,7 +108,7 @@ class WeddingForm(QDialog):
         def add(lbl, w, r, c, span=1):
             g.addWidget(vbox_field(lbl, w, C['card']), r, c, 1, span); return w
 
-        self.no_e      = add("혼인 번호",           mk_entry(), 0, 0)
+        self.no_e      = add("혼인 번호 *",         mk_entry(), 0, 0)
         self.date_e    = add("혼인일 (YYYY/MM/DD)", mk_entry(), 0, 1)
         self.type_cb   = add("형태",               mk_combo(["혼인성사", "축복식", "기타"]), 0, 2, 2)
         self.role_cb   = add("역할",               mk_combo(["신랑", "신부"]), 1, 0)
@@ -116,6 +122,9 @@ class WeddingForm(QDialog):
         bbl.addWidget(cb); bbl.addWidget(sb); outer.addWidget(bb)
 
     def _save(self):
+        if not ge(self.no_e):
+            QMessageBox.warning(self, "오류", "혼인 번호를 입력하세요.")
+            return
         try:
             is_groom = ge(self.role_cb) == "신랑"
             spouse = ge(self.spouse_e)

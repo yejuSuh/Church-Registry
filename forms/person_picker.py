@@ -21,10 +21,12 @@ class PersonPicker(QWidget):
     set by an explicit human pick.
     """
 
-    def __init__(self, db, title, show_english=True, show_phone=False):
+    def __init__(self, db, title, show_english=True, show_phone=False, required=()):
         super().__init__()
         self.db = db
         self.member_id = None
+        # keys from ("kr","en","bn","phone") whose labels get a required '*'
+        req = lambda key, lbl: f"{lbl} *" if key in required else lbl
 
         lay = QVBoxLayout(self); lay.setContentsMargins(0, 0, 0, 0); lay.setSpacing(4)
         lay.addWidget(shdr(title))
@@ -52,17 +54,17 @@ class PersonPicker(QWidget):
         fields_row = QWidget()
         fl = QHBoxLayout(fields_row); fl.setContentsMargins(0, 0, 0, 0); fl.setSpacing(10)
         self.kr_e = mk_entry()
-        fl.addWidget(vbox_field("이름 (한글)", self.kr_e, C['card']), 1)
+        fl.addWidget(vbox_field(req("kr", "이름 (한글)"), self.kr_e, C['card']), 1)
         self.en_e = None
         if show_english:
             self.en_e = mk_entry()
-            fl.addWidget(vbox_field("이름 (영문)", self.en_e, C['card']), 1)
+            fl.addWidget(vbox_field(req("en", "이름 (영문)"), self.en_e, C['card']), 1)
         self.bn_e = mk_entry()
-        fl.addWidget(vbox_field("세례명", self.bn_e, C['card']), 1)
+        fl.addWidget(vbox_field(req("bn", "세례명"), self.bn_e, C['card']), 1)
         self.phone_e = None
         if show_phone:
             self.phone_e = mk_entry()
-            fl.addWidget(vbox_field("전화", self.phone_e, C['card']), 1)
+            fl.addWidget(vbox_field(req("phone", "전화"), self.phone_e, C['card']), 1)
         lay.addWidget(fields_row)
 
         self.search_e.textChanged.connect(self._on_search)
@@ -94,7 +96,7 @@ class PersonPicker(QWidget):
             self.en_e.setText(fv(r, "name_english"))
         self.bn_e.setText(fv(r, "baptismal_name"))
         if self.phone_e:
-            self.phone_e.setText(fv(r, "phone_cell") or fv(r, "phone_home"))
+            self.phone_e.setText(fv(r, "phone"))
         self.search_e.blockSignals(True)
         self.search_e.setText(fv(r, "display_id"))
         self.search_e.setReadOnly(True)

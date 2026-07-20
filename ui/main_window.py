@@ -34,8 +34,8 @@ class MainWindow(QMainWindow):
         sbl = QVBoxLayout(sb); sbl.setContentsMargins(8, 16, 8, 12); sbl.setSpacing(4)
         for txt, style in [
             ("✝",                     "font-size:28px;color:white;background:transparent;"),
-            ("교적 관리",              "font-size:14px;font-weight:bold;color:white;background:transparent;"),
-            ("Boston Korean Catholic", "font-size:9px;color:#8EAFD4;background:transparent;"),
+            ("보스턴 한인 성당",              "font-size:14px;font-weight:bold;color:white;background:transparent;"),
+            ("St. Antoine Daveluy Korean Parish", "font-size:9px;color:#8EAFD4;background:transparent;"),
         ]:
             l = QLabel(txt)
             l.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -154,10 +154,10 @@ class MainWindow(QMainWindow):
 
     def _reload(self):
         self.list_view.load()
-        self._refresh_count()
+        # self._refresh_count()
 
-    def _refresh_count(self):
-        self._count_lbl.setText(f"활성 교인  {self.db.stats()['active']}명")
+    # def _refresh_count(self):
+    #     self._count_lbl.setText(f"활성 교인  {self.db.stats()['active']}명")
 
     def _focus_search(self):
         self.stack.setCurrentIndex(0)
@@ -184,7 +184,7 @@ class MainWindow(QMainWindow):
         ParishionerForm(self, self.db, pno=pno, on_save=refresh).exec()
 
     def _add_member(self, host, ref_pno):
-        area = ref_pno.split("-")[0] if "-" in ref_pno else "00112"
+        area = ref_pno.split("-")[0] if "-" in ref_pno else "112"
         def refresh():
             self._reload()
             self.detail_view.load(ref_pno)

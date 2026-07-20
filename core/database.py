@@ -1,11 +1,25 @@
 import sqlite3
 from datetime import datetime
 
+from core.constants import AREAS
+
 
 class DB:
     def __init__(self, path):
         self.path = path
         self._init_users()
+        self._init_districts()
+        self._migrate_schema()
+
+    def _migrate_schema(self):
+        # Additive column migrations, guarded so they run once per DB file.
+        with self._conn() as c:
+            wedding_cols = [r["name"] for r in c.execute("PRAGMA table_info(wedding)")]
+            # spouse English names captured on the confirmation intake form
+            for col in ("groom_name_english", "bride_name_english"):
+                if col not in wedding_cols:
+                    c.execute(f"ALTER TABLE wedding ADD COLUMN {col} TEXT")
+            c.commit()
 
     def _conn(self):
         c = sqlite3.connect(self.path)
@@ -38,6 +52,23 @@ class DB:
             c.commit()
             if c.execute("SELECT COUNT(*) FROM app_users").fetchone()[0] == 0:
                 self.create_user("admin", "admin1234", "관리자", "—", "admin")
+
+    def _init_districts(self):
+        # reg_area is the stored source of truth for a member's 구역; the
+        # human-readable name lives only in this lookup table and is joined in
+        # at read time. area_code.txt is the authoritative code→name list
+        # (parsed into constants.AREAS), so re-seed with REPLACE on every
+        # startup: editing the file is all it takes to rename a district.
+        with self._conn() as c:
+            c.execute(
+                "CREATE TABLE IF NOT EXISTS district ("
+                " code TEXT PRIMARY KEY,"
+                " name TEXT NOT NULL)"
+            )
+            c.executemany(
+                "INSERT OR REPLACE INTO district (code, name) VALUES (?,?)", AREAS
+            )
+            c.commit()
 
     # ── User / auth methods ──────────────────────────────────────────────────
 
@@ -173,10 +204,11 @@ class DB:
         " TRIM(m.name_korean) AS name,"
         " TRIM(m.name_english) AS name_english,"
         " TRIM(m.baptismal_name) AS baptismal_name,"
-        " TRIM(m.district) AS district,"
+        " d.name AS district,"
         " m.address, m.postal_code,"
-        " m.phone_cell, m.phone_home, m.phone_work, m.email,"
+        " m.phone, m.email,"
         " m.birth_date, m.sex,"
+        " m.place_of_birth, m.occupation,"
         " TRIM(f.head_of_household) AS head_of_household,"
         " TRIM(f.relation) AS relation,"
         " COALESCE(f.dues_paying, 0) AS dues_paying,"
@@ -188,9 +220,10 @@ class DB:
         " FROM member m"
         " LEFT JOIN family f ON f.member_id=m.member_id"
         " LEFT JOIN member_status ms ON ms.member_id=m.member_id"
+        " LEFT JOIN district d ON d.code=m.reg_area"
     )
 
-    def search(self, q="", district=""):
+    def search(self, q="", area=""):
         # Only show real parishioners (numeric reg_area), not placeholder-only members
         sql = self._MEMBER_SELECT + " WHERE m.reg_area GLOB '[0-9]*'"
         p = []
@@ -201,9 +234,9 @@ class DB:
                 " OR TRIM(f.head_of_household) LIKE ?)"
             )
             p += [f"%{q}%"] * 4
-        if district:
-            sql += " AND TRIM(m.district)=?"
-            p.append(district)
+        if area:
+            sql += " AND m.reg_area=?"
+            p.append(area)
         sql += " ORDER BY m.reg_area, CAST(m.reg_code AS INTEGER)"
         with self._conn() as c:
             return c.execute(sql, p).fetchall()
@@ -279,19 +312,24 @@ class DB:
         with self._conn() as c:
             c.execute(
                 "INSERT INTO member"
-                " (reg_area, reg_code, name_korean, name_english, baptismal_name, district,"
-                "  birth_date, sex, email)"
-                " VALUES (?,?,?,?,?,?,?,?,?)",
+                " (reg_area, reg_code, name_korean, name_english, baptismal_name,"
+                "  birth_date, sex, address, postal_code, phone, email,"
+                "  place_of_birth, occupation)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     reg_area,
                     reg_code,
                     data.get("name", ""),
                     data.get("name_english") or None,
                     data.get("baptismal_name", "") or "",
-                    data.get("district", "") or "",
                     data.get("birth_date") or None,
                     data.get("sex") or None,
+                    data.get("address") or None,
+                    data.get("postal_code") or None,
+                    data.get("phone") or None,
                     data.get("email") or None,
+                    data.get("place_of_birth") or None,
+                    data.get("occupation") or None,
                 ),
             )
             new_mid = c.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -321,25 +359,39 @@ class DB:
         mid = int(pno)
         with self._conn() as c:
             c.execute(
-                "UPDATE member SET name_korean=?, name_english=?, baptismal_name=?, district=?,"
-                " birth_date=?, sex=?, email=?"
+                "UPDATE member SET name_korean=?, name_english=?, baptismal_name=?,"
+                " birth_date=?, sex=?, address=?, postal_code=?, phone=?, email=?,"
+                " place_of_birth=?, occupation=?"
                 " WHERE member_id=?",
                 (
                     data.get("name", ""),
                     data.get("name_english") or None,
                     data.get("baptismal_name", "") or "",
-                    data.get("district", "") or "",
                     data.get("birth_date") or None,
                     data.get("sex") or None,
+                    data.get("address") or None,
+                    data.get("postal_code") or None,
+                    data.get("phone") or None,
                     data.get("email") or None,
+                    data.get("place_of_birth") or None,
+                    data.get("occupation") or None,
                     mid,
                 ),
             )
             # Upsert family row (may not exist for members imported from sacrament records)
             existing_family = c.execute(
-                "SELECT family_id FROM family WHERE member_id=?", (mid,)
+                "SELECT * FROM family WHERE member_id=?", (mid,)
             ).fetchone()
-            dues = 1 if data.get("dues_paying") in (1, "Y", "1", True) else 0
+
+            # The parishioner form no longer carries dues fields, so fall back
+            # to the stored values when a key is absent -- otherwise a plain
+            # member edit would silently wipe the family's dues data.
+            def dv(key, col, default):
+                if key in data:
+                    return data[key]
+                return existing_family[col] if existing_family else default
+
+            dues = 1 if dv("dues_paying", "dues_paying", 0) in (1, "Y", "1", True) else 0
             if existing_family:
                 c.execute(
                     "UPDATE family SET head_of_household=?, relation=?, dues_paying=?,"
@@ -349,9 +401,9 @@ class DB:
                         data.get("head_of_household", "") or "",
                         data.get("relation", "") or "",
                         dues,
-                        data.get("monthly_dues") or None,
-                        data.get("dues_start", "") or "",
-                        data.get("dues_last_paid", "") or "",
+                        dv("monthly_dues", "monthly_amount", None) or None,
+                        dv("dues_start", "dues_start_date", "") or "",
+                        dv("dues_last_paid", "dues_last_date", "") or "",
                         data.get("notes", "") or "",
                         mid,
                     ),
@@ -556,9 +608,10 @@ class DB:
             baptisms = c.execute("SELECT COUNT(*) FROM baptism").fetchone()[0]
             weddings = c.execute("SELECT COUNT(*) FROM wedding").fetchone()[0]
             areas    = c.execute(
-                "SELECT TRIM(m.district) area, COUNT(*) cnt"
+                "SELECT d.name area, COUNT(*) cnt"
                 " FROM member m"
+                " LEFT JOIN district d ON d.code=m.reg_area"
                 " WHERE m.reg_area GLOB '[0-9]*'"
-                " GROUP BY TRIM(m.district) ORDER BY cnt DESC"
+                " GROUP BY m.reg_area ORDER BY cnt DESC"
             ).fetchall()
         return dict(active=active, lapsed=lapsed, baptisms=baptisms, weddings=weddings, areas=areas)

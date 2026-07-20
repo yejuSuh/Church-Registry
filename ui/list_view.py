@@ -173,11 +173,11 @@ class ListView(QWidget):
         q = self.q_le.text()
         area_text = self.area_cb.currentText()
         if area_text and area_text != "전체 구역":
-            parts = area_text.split(None, 1)
-            district = parts[1].strip() if len(parts) > 1 else ""
+            # AREA_DISP entries are "code  name" -- filter by the code
+            area = area_text.split(None, 1)[0]
         else:
-            district = ""
-        rows = self.db.search(q, district)
+            area = ""
+        rows = self.db.search(q, area)
         self._rows = rows
         self.table.setRowCount(len(rows))
         for i, r in enumerate(rows):

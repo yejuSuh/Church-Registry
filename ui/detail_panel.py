@@ -120,14 +120,18 @@ class DetailPanel(QWidget):
         sh("📋  기본 정보")
         r2("교적번호", v("display_id"),         "세례명",  v("baptismal_name"))
         r2("세대주",   v("head_of_household"), "관계",    v("relation"))
-        r2("구역",     v("district"))
+        r2("구역",     v("district"),           "성별",    {"M": "남", "F": "여"}.get(fv(p, "sex"), "—"))
+        r2("생년월일", v("birth_date"),         "출생지",  v("place_of_birth"))
+        r2("주소",     v("address"),            "우편번호", v("postal_code"))
+        r2("전화",     v("phone"),              "이메일",  v("email"))
+        r2("직업",     v("occupation"))
 
-        flags = []
-        if is_inactive:                    flags.append("😴 냉담자")
-        if v("dues_paying") == "1":        flags.append("💰 교무금")
-        if flags:
-            fl = QLabel("  ".join(flags)); fl.setObjectName("mu")
-            grid.addWidget(fl, r, 0, 1, 4); r += 1
+        # flags = []
+        # if is_inactive:                    flags.append("😴 냉담자")
+        # if v("dues_paying") == "1":        flags.append("💰 교무금")
+        # if flags:
+        #     fl = QLabel("  ".join(flags)); fl.setObjectName("mu")
+        #     grid.addWidget(fl, r, 0, 1, 4); r += 1
 
         sh("💰  교무금")
         dues_label = "납부" if v("dues_paying") == "1" else "미납"
@@ -141,7 +145,7 @@ class DetailPanel(QWidget):
 
         members = self.db.household(v("head_of_household"), exclude=pno)
         if members:
-            sh(f"👨‍👩‍👧  같은 세대 ({len(members)}명)")
+            sh(f"👨‍👩‍👧  세대구성원")
             tbl = QTableWidget(len(members), 4)
             tbl.setHorizontalHeaderLabels(["이름", "세례명", "관계", "교적번호"])
             tbl.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)

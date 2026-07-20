@@ -35,22 +35,22 @@ class UserFormDialog(QDialog):
         if is_edit:
             self._user_le.setReadOnly(True)
             self._user_le.setStyleSheet(f"background:{C['header']};color:{C['muted']};")
-        g.addWidget(vbox_field("아이디", self._user_le), 0, 0, 1, 2)
+        g.addWidget(vbox_field("아이디" + ("" if is_edit else " *"), self._user_le), 0, 0, 1, 2)
 
         self._pw_le = QLineEdit()
         self._pw_le.setEchoMode(QLineEdit.EchoMode.Password)
         self._pw_le.setPlaceholderText("변경 시에만 입력" if is_edit else "")
-        g.addWidget(vbox_field("비밀번호" + (" (선택)" if is_edit else ""), self._pw_le), 1, 0)
+        g.addWidget(vbox_field("비밀번호" + (" (선택)" if is_edit else " *"), self._pw_le), 1, 0)
 
         self._pw2_le = QLineEdit()
         self._pw2_le.setEchoMode(QLineEdit.EchoMode.Password)
-        g.addWidget(vbox_field("비밀번호 확인", self._pw2_le), 1, 1)
+        g.addWidget(vbox_field("비밀번호 확인" + ("" if is_edit else " *"), self._pw2_le), 1, 1)
 
         self._name_le = QLineEdit(user["name"] if is_edit else "")
-        g.addWidget(vbox_field("이름", self._name_le), 2, 0)
+        g.addWidget(vbox_field("이름 *", self._name_le), 2, 0)
 
         self._bname_le = QLineEdit(user["baptism_name"] if is_edit else "")
-        g.addWidget(vbox_field("세례명", self._bname_le), 2, 1)
+        g.addWidget(vbox_field("세례명 *", self._bname_le), 2, 1)
 
         self._level_cb = mk_combo(["staff", "admin"], user["user_level"] if is_edit else "staff")
         if session.user_level != "admin":

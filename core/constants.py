@@ -114,12 +114,31 @@ QTabBar::tab:selected{{color:{C['accent']};background:{C['card']};
 QTabBar::tab:hover:!selected{{background:{C['border']};}}
 """
 
-AREAS = [
-    ("00101","평화/동부"),("00102","기쁨/서부"),("00103","선행/남부"),
-    ("00104","진실/북부 1"),("00105","온유/북부 2"),("00106","인내/중부"),
-    ("00107","절제/내슈아"),("00108","친절/에이어"),("00109","반석회"),
-    ("00110","청년회"),("00111","스프링필드 공소"),("00112","무소속"),
-]
+# 구역 codes and names live in area_code.txt (one "code name" pair per line,
+# next to parish.db) so the parish can edit them without touching code. The
+# hardcoded list is only a fallback if the file is missing.
+_AREA_FILE = os.path.join(_DIR, "area_code.txt")
+
+def _load_areas():
+    try:
+        areas = []
+        with open(_AREA_FILE, encoding="utf-8") as f:
+            for line in f:
+                parts = line.strip().split(None, 1)
+                if len(parts) == 2:
+                    areas.append((parts[0], parts[1]))
+        if areas:
+            return areas
+    except OSError:
+        pass
+    return [
+        ("101","평화/동부"),("102","기쁨/서부"),("103","선행/남부"),
+        ("104","진실/북부1"),("105","온유/북부2"),("106","인내/중부"),
+        ("107","절제/내슈아"),("108","친절/에이어"),("109","반석회"),
+        ("110","청년회"),("111","스프링필드 공소"),("112","무소속"),
+    ]
+
+AREAS = _load_areas()
 AREA_MAP  = {a[0]: a[1] for a in AREAS}
 AREA_DISP = [f"{a[0]}  {a[1]}" for a in AREAS]
 RELATIONS = [

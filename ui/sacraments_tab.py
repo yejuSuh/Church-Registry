@@ -16,12 +16,9 @@ def _married_disp(rec):
         v = None
     return "예" if v == 1 else ("아니오" if v == 0 else "")
 from forms.sacrament_forms import (
-    BaptismForm, ConfirmationForm, WeddingForm, DeathForm,
+    BaptismForm, WeddingForm, DeathForm,
 )
-from forms.intake_forms import (
-    AdultConfirmationForm, AdultInitiationForm,
-    InfantBaptismForm, YouthConfirmationForm,
-)
+from forms.intake_forms import InfantBaptismForm, ConfirmationIntakeForm
 
 
 class SacramentsTab(QWidget):
@@ -71,13 +68,7 @@ class SacramentsTab(QWidget):
             ],
             baptism_menu)
 
-        # 견진: three distinct application forms plus a quick manual entry.
-        confirmation_menu = QMenu(self)
-        confirmation_menu.addAction("📋 성인 견진성사 신청서", lambda: open_dialog(AdultConfirmationForm))
-        confirmation_menu.addAction("📋 성인 입문성사 신청서 (RCIA)", lambda: open_dialog(AdultInitiationForm))
-        confirmation_menu.addAction("📋 청소년 견진성사 신청서", lambda: open_dialog(YouthConfirmationForm))
-        confirmation_menu.addAction("⚡ 빠른 입력 (간단 기록)", lambda: open_dialog(ConfirmationForm))
-
+        # 견진: one unified application form (성인/청소년 tabs inside)
         self._section(lay, "🕊  견진", self.db.get_confirmation_records(self.pno),
             lambda rec: [
                 ("견진번호",   fv(rec, "confirmation_no")),
@@ -94,7 +85,7 @@ class SacramentsTab(QWidget):
                 ("부모 혼인성사", _married_disp(rec)),
                 ("혼인기록 연결", fv(rec, "wedding_no")),
             ],
-            confirmation_menu)
+            lambda: open_dialog(ConfirmationIntakeForm))
 
         wedding_menu = QMenu(self)
         wedding_menu.addAction("⚡ 빠른 입력", lambda: open_dialog(WeddingForm))
@@ -137,14 +128,20 @@ class SacramentsTab(QWidget):
         lay.addStretch()
         self._scroll.setWidget(body)
 
-    def _section(self, lay, title, records, fields_fn, menu):
+    def _section(self, lay, title, records, fields_fn, action):
+        """`action` is either a QMenu (dropdown add button) or a plain
+        callable (direct add button)."""
         hdr_row = QWidget()
         hl = QHBoxLayout(hdr_row); hl.setContentsMargins(0, 0, 0, 0); hl.setSpacing(6)
         hl.addWidget(shdr(title)); hl.addStretch()
-        if menu is not None:
-            add_btn = mk_btn("+ 추가 ▾", "btn_success")
+        if action is not None:
+            if isinstance(action, QMenu):
+                add_btn = mk_btn("+ 추가 ▾", "btn_success")
+                add_btn.setMenu(action)
+            else:
+                add_btn = mk_btn("+ 추가", "btn_success")
+                add_btn.clicked.connect(action)
             add_btn.setFixedHeight(26); add_btn.setFixedWidth(78)
-            add_btn.setMenu(menu)
             hl.addWidget(add_btn)
         lay.addWidget(hdr_row)
 
