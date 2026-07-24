@@ -149,18 +149,15 @@ class _IntakeDialog(QDialog):
         self.grid.addWidget(shdr(text), r, 0, 1, 4)
 
     def _link_parents(self, father: ParentBlock, mother: ParentBlock):
-        # Decision: when a father/mother match is found, automatically link the
-        # child into that household (family.head_of_household/relation) rather
-        # than leaving it as a manual follow-up -- see item 4 in the intake
-        # forms task. This overwrites the applicant's existing family row.
+        # When a matched parent is found, join the child into that parent's
+        # household automatically rather than requiring a manual follow-up.
         father_mid = father.member_id()
         mother_mid = mother.member_id()
         if not (father_mid or mother_mid):
             return
         relation = {'M': '자', 'F': '녀'}.get(fv(self.member, "sex"), '자녀')
-        head = father.name_korean() if father_mid else mother.name_korean()
-        if head:
-            self.db.link_child_to_parent(self.pno, head, relation)
+        parent_mid = father_mid or mother_mid
+        self.db.link_child_to_parent(self.pno, parent_mid, relation)
 
 
 class ConfirmationIntakeForm(_IntakeDialog):

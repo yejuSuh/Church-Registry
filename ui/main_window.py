@@ -114,7 +114,6 @@ class MainWindow(QMainWindow):
         self.list_view.row_selected.connect(self.detail_view.load)
         self.detail_view.edit_sig.connect(self._edit)
         self.detail_view.delete_sig.connect(self._delete)
-        self.detail_view.add_sig.connect(self._add_member)
         self.logout_btn.clicked.connect(lambda: self._logout())
         self.user_mgmt_view.session_changed.connect(self._refresh_user_lbl)
         # own account was deactivated/deleted -- the session is no longer
@@ -182,13 +181,6 @@ class MainWindow(QMainWindow):
             self._reload()
             self.detail_view.load(pno)
         ParishionerForm(self, self.db, pno=pno, on_save=refresh).exec()
-
-    def _add_member(self, host, ref_pno):
-        area = ref_pno.split("-")[0] if "-" in ref_pno else "112"
-        def refresh():
-            self._reload()
-            self.detail_view.load(ref_pno)
-        ParishionerForm(self, self.db, prefill_host=host, prefill_area=area, on_save=refresh).exec()
 
     def _delete(self, pno):
         msg = f"교적을 삭제하시겠습니까?\n{pno}\n\n이 작업은 되돌릴 수 없습니다."

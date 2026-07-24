@@ -9,12 +9,12 @@ from core.constants import C, BTN_RADIUS
 from ui.ui_helpers import fv, mk_btn, shdr, mk_regno
 from ui.sacraments_tab import SacramentsTab
 from ui.move_records_tab import MoveRecordsTab
+from forms.household_dialog import HouseholdDialog
 
 
 class DetailPanel(QWidget):
-    edit_sig        = pyqtSignal(str)
-    delete_sig      = pyqtSignal(str)
-    add_sig         = pyqtSignal(str, str)
+    edit_sig   = pyqtSignal(str)
+    delete_sig = pyqtSignal(str)
 
     def __init__(self, db):
         super().__init__()
@@ -40,6 +40,10 @@ class DetailPanel(QWidget):
         lbl.setStyleSheet(f"color:{C['muted']};font-size:15px;")
         l.addWidget(lbl)
         self._l.addWidget(w)
+
+    def _open_household(self, pno):
+        HouseholdDialog(self, self.db, pno, on_change=None).exec()
+        self.load(pno)
 
     def load(self, pno):
         p = self.db.get(pno)
@@ -82,10 +86,10 @@ class DetailPanel(QWidget):
         bb = QWidget(); bb.setObjectName("detail_btnbar"); bb.setFixedHeight(46)
         bbl = QHBoxLayout(bb); bbl.setContentsMargins(8, 6, 8, 6); bbl.setSpacing(6)
         eb     = mk_btn("✏️  수정", "btn_accent")
-        ab     = mk_btn("👤+  가족 추가", "btn_success")
+        ab     = mk_btn("🏠  세대 관리", "btn_success")
         db_btn = mk_btn("🗑  삭제", "btn_danger")
         eb.clicked.connect(lambda: self.edit_sig.emit(pno))
-        ab.clicked.connect(lambda: self.add_sig.emit(v("head_of_household"), pno))
+        ab.clicked.connect(lambda: self._open_household(pno))
         db_btn.clicked.connect(lambda: self.delete_sig.emit(pno))
         bbl.addWidget(eb); bbl.addWidget(ab); bbl.addWidget(db_btn)
         bbl.addStretch()
@@ -143,7 +147,7 @@ class DetailPanel(QWidget):
             ml = QLabel(v("notes")); ml.setObjectName("fv"); ml.setWordWrap(True)
             grid.addWidget(ml, r, 0, 1, 4); r += 1
 
-        members = self.db.household(v("head_of_household"), exclude=pno)
+        members = self.db.household(p["household_id"], exclude=pno)
         if members:
             sh(f"👨‍👩‍👧  세대구성원")
             tbl = QTableWidget(len(members), 4)

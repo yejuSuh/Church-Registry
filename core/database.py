@@ -12,7 +12,35 @@ class DB:
         self._migrate_schema()
 
     def _migrate_schema(self):
-        pass
+        with self._conn() as c:
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS household (
+                    household_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                    head_member_id INTEGER REFERENCES member(member_id) ON DELETE RESTRICT,
+                    created_at     TEXT
+                )
+            """)
+            family_cols = [r[1] for r in c.execute("PRAGMA table_info(family)").fetchall()]
+            if not family_cols or "head_of_household" in family_cols:
+                c.execute("DROP TABLE IF EXISTS family")
+                c.execute("""
+                    CREATE TABLE family (
+                        family_id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                        member_id       INTEGER NOT NULL REFERENCES member(member_id) ON DELETE CASCADE,
+                        household_id    INTEGER REFERENCES household(household_id) ON DELETE SET NULL,
+                        relation        TEXT,
+                        dues_paying     INTEGER NOT NULL DEFAULT 0 CHECK(dues_paying IN (0,1)),
+                        monthly_amount  REAL,
+                        dues_start_date TEXT,
+                        dues_last_date  TEXT,
+                        notes           TEXT,
+                        created_at      TEXT
+                    )
+                """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_family_member    ON family(member_id)")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_family_household ON family(household_id)")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_household_head   ON household(head_member_id)")
+            c.commit()
 
     def _conn(self):
         c = sqlite3.connect(self.path)
@@ -202,7 +230,10 @@ class DB:
         " m.phone, m.email,"
         " m.birth_date, m.sex,"
         " m.occupation,"
-        " TRIM(f.head_of_household) AS head_of_household,"
+        " f.household_id,"
+        " h.head_member_id,"
+        " TRIM(mh.name_ko) AS head_of_household,"
+        " CASE WHEN h.head_member_id=m.member_id THEN 1 ELSE 0 END AS is_head,"
         " TRIM(f.relation) AS relation,"
         " COALESCE(f.dues_paying, 0) AS dues_paying,"
         " f.monthly_amount AS monthly_dues,"
@@ -212,6 +243,8 @@ class DB:
         " CASE WHEN ms.status='inactive' THEN 1 ELSE 0 END AS is_inactive"
         " FROM member m"
         " LEFT JOIN family f ON f.member_id=m.member_id"
+        " LEFT JOIN household h ON h.household_id=f.household_id"
+        " LEFT JOIN member mh ON mh.member_id=h.head_member_id"
         " LEFT JOIN member_status ms ON ms.member_id=m.member_id"
         " LEFT JOIN district d ON d.code=m.reg_area"
     )
@@ -223,7 +256,7 @@ class DB:
         if q:
             sql += (
                 " AND (TRIM(m.name_ko) LIKE ? OR TRIM(m.baptismal_name) LIKE ?"
-                " OR TRIM(f.head_of_household) LIKE ?)"
+                " OR TRIM(mh.name_ko) LIKE ?)"
             )
             p += [f"%{q}%"] * 3
         if area:
@@ -258,24 +291,29 @@ class DB:
         with self._conn() as c:
             return c.execute(sql, p).fetchall()
 
-    def household(self, head, exclude=None):
+    def household(self, household_id, exclude=None):
+        if not household_id:
+            return []
+        hid = int(household_id)
         with self._conn() as c:
-            base = (
+            sql = (
                 "SELECT m.member_id,"
                 " m.reg_area || '-' || printf('%05d', m.member_id) AS display_id,"
                 " TRIM(m.name_ko) AS name,"
                 " TRIM(m.baptismal_name) AS baptismal_name,"
-                " TRIM(f.relation) AS relation"
+                " TRIM(f.relation) AS relation,"
+                " h.head_member_id"
                 " FROM member m"
-                " LEFT JOIN family f ON f.member_id=m.member_id"
-                " WHERE TRIM(f.head_of_household)=?"
+                " JOIN family f ON f.member_id=m.member_id"
+                " JOIN household h ON h.household_id=f.household_id"
+                " WHERE f.household_id=?"
             )
+            params = [hid]
             if exclude:
-                return c.execute(
-                    base + " AND m.member_id!=? ORDER BY m.member_id",
-                    (head, int(exclude)),
-                ).fetchall()
-            return c.execute(base + " ORDER BY m.member_id", (head,)).fetchall()
+                sql += " AND m.member_id!=?"
+                params.append(int(exclude))
+            sql += " ORDER BY CASE WHEN h.head_member_id=m.member_id THEN 0 ELSE 1 END, m.member_id"
+            return c.execute(sql, params).fetchall()
 
     def next_no(self, area_code):
         with self._conn() as c:
@@ -323,13 +361,10 @@ class DB:
             new_mid = c.execute("SELECT last_insert_rowid()").fetchone()[0]
             c.execute(
                 "INSERT INTO family"
-                " (member_id, head_of_household, relation, dues_paying,"
-                "  monthly_amount, dues_start_date, dues_last_date, notes)"
-                " VALUES (?,?,?,?,?,?,?,?)",
+                " (member_id, dues_paying, monthly_amount, dues_start_date, dues_last_date, notes)"
+                " VALUES (?,?,?,?,?,?)",
                 (
                     new_mid,
-                    data.get("head_of_household", "") or "",
-                    data.get("relation", "") or "",
                     1 if data.get("dues_paying") in (1, "Y", "1", True) else 0,
                     data.get("monthly_dues") or None,
                     data.get("dues_start", "") or "",
@@ -342,6 +377,7 @@ class DB:
                 (new_mid,),
             )
             c.commit()
+        return new_mid
 
     def update(self, pno, data):
         mid = int(pno)
@@ -381,12 +417,10 @@ class DB:
             dues = 1 if dv("dues_paying", "dues_paying", 0) in (1, "Y", "1", True) else 0
             if existing_family:
                 c.execute(
-                    "UPDATE family SET head_of_household=?, relation=?, dues_paying=?,"
+                    "UPDATE family SET dues_paying=?,"
                     " monthly_amount=?, dues_start_date=?, dues_last_date=?, notes=?"
                     " WHERE member_id=?",
                     (
-                        data.get("head_of_household", "") or "",
-                        data.get("relation", "") or "",
                         dues,
                         dv("monthly_dues", "monthly_amount", None) or None,
                         dv("dues_start", "dues_start_date", "") or "",
@@ -398,13 +432,10 @@ class DB:
             else:
                 c.execute(
                     "INSERT INTO family"
-                    " (member_id, head_of_household, relation, dues_paying,"
-                    "  monthly_amount, dues_start_date, dues_last_date, notes)"
-                    " VALUES (?,?,?,?,?,?,?,?)",
+                    " (member_id, dues_paying, monthly_amount, dues_start_date, dues_last_date, notes)"
+                    " VALUES (?,?,?,?,?,?)",
                     (
                         mid,
-                        data.get("head_of_household", "") or "",
-                        data.get("relation", "") or "",
                         dues,
                         data.get("monthly_dues") or None,
                         data.get("dues_start", "") or "",
@@ -537,25 +568,152 @@ class DB:
             )
             c.commit()
 
-    def link_child_to_parent(self, member_id, head_of_household, relation):
-        # Sets/updates the child's family row so a matched father/mother
-        # actually links the household, not just the FK on the sacrament row.
+    def link_child_to_parent(self, member_id, parent_member_id, relation):
+        # Links a child to their parent's household when a parent is matched
+        # on a sacrament intake form. No-op if the parent has no household yet.
+        mid = int(member_id)
+        pmid = int(parent_member_id)
         with self._conn() as c:
+            row = c.execute(
+                "SELECT household_id FROM family WHERE member_id=?", (pmid,)
+            ).fetchone()
+            if not row or not row[0]:
+                return
+            hid = row[0]
             existing = c.execute(
-                "SELECT family_id FROM family WHERE member_id=?", (int(member_id),)
+                "SELECT family_id FROM family WHERE member_id=?", (mid,)
             ).fetchone()
             if existing:
                 c.execute(
-                    "UPDATE family SET head_of_household=?, relation=? WHERE member_id=?",
-                    (head_of_household, relation, int(member_id)),
+                    "UPDATE family SET household_id=?, relation=? WHERE member_id=?",
+                    (hid, relation, mid),
                 )
             else:
                 c.execute(
-                    "INSERT INTO family (member_id, head_of_household, relation, dues_paying)"
+                    "INSERT INTO family (member_id, household_id, relation, dues_paying)"
                     " VALUES (?,?,?,0)",
-                    (int(member_id), head_of_household, relation),
+                    (mid, hid, relation),
                 )
             c.commit()
+
+    # ── Household methods ────────────────────────────────────────────────────
+
+    def create_household(self, head_member_id):
+        """Create a new household with head_member_id as the 세대주.
+        Sets that member's family row to household_id + relation='본인'.
+        Returns the new household_id."""
+        head_mid = int(head_member_id)
+        with self._conn() as c:
+            c.execute(
+                "INSERT INTO household (head_member_id) VALUES (?)", (head_mid,)
+            )
+            hid = c.execute("SELECT last_insert_rowid()").fetchone()[0]
+            existing = c.execute(
+                "SELECT family_id FROM family WHERE member_id=?", (head_mid,)
+            ).fetchone()
+            if existing:
+                c.execute(
+                    "UPDATE family SET household_id=?, relation='본인' WHERE member_id=?",
+                    (hid, head_mid),
+                )
+            else:
+                c.execute(
+                    "INSERT INTO family (member_id, household_id, relation, dues_paying)"
+                    " VALUES (?,?,?,0)",
+                    (head_mid, hid, "본인"),
+                )
+            c.commit()
+        return hid
+
+    def join_household(self, member_id, household_id, relation):
+        """Add (or move) a member into an existing household with the given relation.
+        Only updates household_id and relation; dues fields are untouched."""
+        mid = int(member_id)
+        hid = int(household_id)
+        with self._conn() as c:
+            existing = c.execute(
+                "SELECT family_id FROM family WHERE member_id=?", (mid,)
+            ).fetchone()
+            if existing:
+                c.execute(
+                    "UPDATE family SET household_id=?, relation=? WHERE member_id=?",
+                    (hid, relation, mid),
+                )
+            else:
+                c.execute(
+                    "INSERT INTO family (member_id, household_id, relation, dues_paying)"
+                    " VALUES (?,?,?,0)",
+                    (mid, hid, relation),
+                )
+            c.commit()
+
+    def leave_household(self, member_id):
+        """Detach a member from their current household (sets household_id=NULL)."""
+        mid = int(member_id)
+        with self._conn() as c:
+            c.execute(
+                "UPDATE family SET household_id=NULL, relation='' WHERE member_id=?",
+                (mid,),
+            )
+            c.commit()
+
+    def set_household_head(self, household_id, new_head_member_id):
+        """Change the 세대주 of a household.
+        Updates household.head_member_id and sets the new head's relation to '본인'."""
+        hid = int(household_id)
+        new_mid = int(new_head_member_id)
+        with self._conn() as c:
+            c.execute(
+                "UPDATE household SET head_member_id=? WHERE household_id=?",
+                (new_mid, hid),
+            )
+            c.execute(
+                "UPDATE family SET relation='본인' WHERE member_id=? AND household_id=?",
+                (new_mid, hid),
+            )
+            c.commit()
+
+    def get_household_members(self, household_id, exclude=None):
+        """Return all members of a household ordered head-first."""
+        if not household_id:
+            return []
+        hid = int(household_id)
+        with self._conn() as c:
+            sql = (
+                "SELECT m.member_id,"
+                " m.reg_area || '-' || printf('%05d', m.member_id) AS display_id,"
+                " TRIM(m.name_ko) AS name,"
+                " TRIM(m.baptismal_name) AS baptismal_name,"
+                " TRIM(f.relation) AS relation,"
+                " CASE WHEN h.head_member_id=m.member_id THEN 1 ELSE 0 END AS is_head"
+                " FROM member m"
+                " JOIN family f ON f.member_id=m.member_id"
+                " JOIN household h ON h.household_id=f.household_id"
+                " WHERE f.household_id=?"
+            )
+            params = [hid]
+            if exclude:
+                sql += " AND m.member_id!=?"
+                params.append(int(exclude))
+            sql += " ORDER BY is_head DESC, m.member_id"
+            return c.execute(sql, params).fetchall()
+
+    def search_households(self, q, limit=10):
+        """Search households by 세대주 name or baptismal name."""
+        q = (q or "").strip()
+        if not q:
+            return []
+        with self._conn() as c:
+            return c.execute(
+                "SELECT h.household_id, TRIM(m.name_ko) AS head_name,"
+                " TRIM(m.baptismal_name) AS head_bapt,"
+                " m.reg_area || '-' || printf('%05d', m.member_id) AS head_display_id"
+                " FROM household h"
+                " JOIN member m ON m.member_id=h.head_member_id"
+                " WHERE TRIM(m.name_ko) LIKE ? OR TRIM(m.baptismal_name) LIKE ?"
+                " LIMIT ?",
+                (f"%{q}%", f"%{q}%", limit),
+            ).fetchall()
 
     def create_death_record(self, data):
         mid = int(data.get("member_id", 0))

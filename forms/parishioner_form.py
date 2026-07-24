@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-from core.constants import C, AREA_DISP, RELATIONS
+from core.constants import C, AREA_DISP
 from ui.ui_helpers import fv, mk_btn, shdr, vbox_field, mk_entry, mk_combo, ge
 
 
@@ -74,10 +74,9 @@ class ParishionerForm(QDialog):
         sex_disp = {'M': '남', 'F': '여'}.get(ev("sex"), '')
         self.sex_cb    = add("성별 *",        mk_combo(['', '남', '여'], sex_disp), r, 3); r += 1
 
-        self.birth_e = add("생년월일 *", mk_entry(ev("birth_date")), r, 0)
+        self.birth_e = mk_entry(ev("birth_date"))
         self.birth_e.setPlaceholderText("YYYY/MM/DD")
-        self.host_e  = add("세대주 이름 *", mk_entry(ev("head_of_household") if existing else prefill_host), r, 1, 2)
-        self.rel_cb  = add("관계 *",     mk_combo(RELATIONS, ev("relation") if existing else "본인"), r, 3); r += 1
+        grid.addWidget(vbox_field("생년월일 *", self.birth_e, C['card']), r, 0, 1, 2); r += 1
 
         self.addr_e   = add("주소 *", mk_entry(ev("address")), r, 0, 3)
         self.postal_e = add("우편번호", mk_entry(ev("postal_code")), r, 3); r += 1
@@ -111,7 +110,6 @@ class ParishionerForm(QDialog):
             (self.sex_cb,    "성별을 선택하세요."),
             (self.birth_e,   "생년월일을 입력하세요."),
             (self.addr_e,    "주소를 입력하세요."),
-            (self.host_e,    "세대주 이름을 입력하세요."),
         ]
         for widget, msg in required:
             if not ge(widget):
@@ -126,8 +124,6 @@ class ParishionerForm(QDialog):
             member_id=pno,
             name=ge(self.name_kr_e),
             name_english=ge(self.name_en_e),
-            head_of_household=ge(self.host_e),
-            relation=ge(self.rel_cb),
             baptismal_name=ge(self.bname_e),
             birth_date=ge(self.birth_e),
             sex=sex_db,
@@ -138,12 +134,13 @@ class ParishionerForm(QDialog):
             occupation=ge(self.occ_e) or None,
             notes=ge(self.notes_te),
         )
+        self._last_created_mid = None
         try:
             if self.pno:
                 del data["member_id"]
                 self.db.update(self.pno, data)
             else:
-                self.db.create(data)
+                self._last_created_mid = self.db.create(data)
             if self.on_save:
                 self.on_save()
             self.accept()
