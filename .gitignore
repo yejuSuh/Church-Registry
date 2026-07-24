@@ -13,7 +13,4 @@ __pycache__/
 
 todo
 *.pdf
-parish_temp.db
-parish_backup_pre_migration_20260706.db
 *.md
-area_code.txt

@@ -19,6 +19,15 @@ class DB:
             for col in ("groom_name_english", "bride_name_english"):
                 if col not in wedding_cols:
                     c.execute(f"ALTER TABLE wedding ADD COLUMN {col} TEXT")
+
+            member_cols = [r["name"] for r in c.execute("PRAGMA table_info(member)")]
+            if "phone_cell" in member_cols:
+                c.execute("ALTER TABLE member RENAME COLUMN phone_cell TO phone")
+            if "phone_home" in member_cols:
+                c.execute("ALTER TABLE member DROP COLUMN phone_home")
+            if "phone_work" in member_cols:
+                c.execute("ALTER TABLE member DROP COLUMN phone_work")
+
             c.commit()
 
     def _conn(self):
