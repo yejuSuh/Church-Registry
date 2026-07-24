@@ -15,3 +15,7 @@ todo
 *.pdf
 *.md
 parish_backup_20260724.db
+parish_pre_confbapt_20260724_1706.db
+parish_pre_migration_20260724.db
+parish_pre_sacraments_20260724.db
+parish.db.bak
