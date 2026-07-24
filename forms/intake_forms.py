@@ -105,7 +105,7 @@ class PriorBaptismBlock(QWidget):
             return
         db.create_baptism(dict(
             baptism_no=no, member_id=member_id,
-            baptism_date=self.date_e.text().strip() or None,
+            date=self.date_e.text().strip() or None,
             diocese=self.dioc_e.text().strip() or None,
             parish=self.par_e.text().strip() or None,
         ))
@@ -218,8 +218,6 @@ class ConfirmationIntakeForm(_IntakeDialog):
         wl = QHBoxLayout(wrow); wl.setContentsMargins(0, 0, 0, 0); wl.setSpacing(10)
         self.wtype_cb = mk_combo(["(관면)혼배성사", "사회혼"])
         wl.addWidget(vbox_field("혼인 형태 *", self.wtype_cb, C['card']), 1)
-        self.wplace_e = mk_entry()
-        wl.addWidget(vbox_field("혼인장소 *", self.wplace_e, C['card']), 1)
         self.wdate_e = mk_entry()
         wl.addWidget(vbox_field("혼인날짜 *", self.wdate_e, C['card']), 1)
         self.woff_e = mk_entry()
@@ -268,17 +266,15 @@ class ConfirmationIntakeForm(_IntakeDialog):
             r = dlg.chosen
             self._matched_wedding_no = r["wedding_no"]
             self.wno_e.setText(fv(r, "wedding_no")); self.wno_e.setReadOnly(True)
-            self.wdate_e.setText(fv(r, "wedding_date"))
+            self.wdate_e.setText(fv(r, "date"))
             idx = self.wtype_cb.findText(fv(r, "wedding_type"), Qt.MatchFlag.MatchContains)
             if idx >= 0:
                 self.wtype_cb.setCurrentIndex(idx)
-            self.wplace_e.setText(fv(r, "marriage_place"))
             self.woff_e.setText(fv(r, "officiant_name"))
 
     def _resolve_wedding(self, marital_status):
-        """Returns the wedding_no to link on confirmation.wedding_no, creating
-        a new `wedding` row if needed. Returns None if not currently married,
-        or if married but no wedding_no was given for a new record."""
+        """Creates a new `wedding` row if the applicant is married and no
+        existing wedding record was matched. Returns the wedding_no or None."""
         if marital_status not in ("초혼", "재혼"):
             return None
         if self._matched_wedding_no:
@@ -290,29 +286,26 @@ class ConfirmationIntakeForm(_IntakeDialog):
         is_groom = fv(self.member, "sex") == 'M'
         wdata = dict(
             wedding_no=wno,
-            wedding_date=ge(self.wdate_e) or None,
+            date=ge(self.wdate_e) or None,
             wedding_type=ge(self.wtype_cb) or None,
-            marriage_place=ge(self.wplace_e) or None,
             officiant_name=ge(self.woff_e) or None,
         )
         applicant_kr = fv(self.member, "name") or None
-        applicant_en = fv(self.member, "name_english") or None
         applicant_bn = fv(self.member, "baptismal_name") or None
-        spouse_en = self.spouse.en_e.text().strip() or None
         spouse_bn = self.spouse.bn_e.text().strip() or None
         if is_groom:
             wdata.update(
-                groom_member_id=self.pno, groom_name=applicant_kr,
-                groom_name_english=applicant_en, groom_baptismal_name=applicant_bn,
-                bride_member_id=self.spouse.member_id, bride_name=spouse_name,
-                bride_name_english=spouse_en, bride_baptismal_name=spouse_bn,
+                groom_id=self.pno, groom_name=applicant_kr,
+                groom_name_bapt=applicant_bn,
+                bride_id=self.spouse.member_id, bride_name=spouse_name,
+                bride_name_bapt=spouse_bn,
             )
         else:
             wdata.update(
-                bride_member_id=self.pno, bride_name=applicant_kr,
-                bride_name_english=applicant_en, bride_baptismal_name=applicant_bn,
-                groom_member_id=self.spouse.member_id, groom_name=spouse_name,
-                groom_name_english=spouse_en, groom_baptismal_name=spouse_bn,
+                bride_id=self.pno, bride_name=applicant_kr,
+                bride_name_bapt=applicant_bn,
+                groom_id=self.spouse.member_id, groom_name=spouse_name,
+                groom_name_bapt=spouse_bn,
             )
         self.db.create_wedding_record(wdata)
         return wno
@@ -344,7 +337,6 @@ class ConfirmationIntakeForm(_IntakeDialog):
                         (self.spouse.kr_e, "배우자 한글 이름을 입력하세요."),
                         (self.spouse.en_e, "배우자 영문 이름을 입력하세요."),
                         (self.spouse.bn_e, "배우자 세례명을 입력하세요."),
-                        (self.wplace_e,    "혼인장소를 입력하세요."),
                         (self.wdate_e,     "혼인날짜를 입력하세요."),
                         (self.woff_e,      "예식 집전자를 입력하세요."),
                     ]
@@ -363,31 +355,23 @@ class ConfirmationIntakeForm(_IntakeDialog):
                     widget.setFocus()
                     return
 
-            if is_adult and ge(self.marital_cb):
-                self.db.update_member_fields(
-                    self.pno, dict(marital_status=ge(self.marital_cb)))
             self.prior_baptism.maybe_create(self.db, self.pno)
 
             data = dict(
                 confirmation_no=ge(self.no_e), member_id=self.pno,
-                confirmation_date=ge(self.date_e),
+                date=ge(self.date_e),
                 diocese=ge(self.dioc_e) or None,
                 parish=ge(self.church_e) or None,
                 officiant_name=ge(self.off_e),
             )
-            data.update(self.sponsor.data("sponsor"))
+            data.update(self.sponsor.data("godparent"))
 
             if is_adult:
-                data["wedding_no"] = self._resolve_wedding(ge(self.marital_cb))
+                self._resolve_wedding(ge(self.marital_cb))
             else:
-                data.update(self.father.data("father"))
-                data.update(self.mother.data("mother"))
-                data["parents_married_in_church"] = 1 if self.married_cb.isChecked() else 0
+                self._link_parents(self.father, self.mother)
 
             self.db.create_confirmation_record(data)
-
-            if not is_adult:
-                self._link_parents(self.father, self.mother)
 
             if self.on_save:
                 self.on_save()
@@ -447,15 +431,12 @@ class InfantBaptismForm(_IntakeDialog):
 
             data = dict(
                 baptism_no=no, member_id=self.pno,
-                baptism_date=ge(self.date_e) or None,
+                date=ge(self.date_e) or None,
                 diocese=ge(self.dioc_e) or None,
                 parish=ge(self.church_e) or None,
                 officiant_name=ge(self.off_e) or None,
-                officiant_baptismal_name=ge(self.off_bn_e) or None,
-                parents_married_in_church=1 if self.married_cb.isChecked() else 0,
+                officiant_name_bapt=ge(self.off_bn_e) or None,
             )
-            data.update(self.father.data("father"))
-            data.update(self.mother.data("mother"))
             data.update(self.godparent.data("godparent"))
             self.db.create_baptism(data)
 
@@ -464,7 +445,7 @@ class InfantBaptismForm(_IntakeDialog):
                 if cno:
                     self.db.create_communion_record(dict(
                         communion_no=cno, member_id=self.pno,
-                        communion_date=ge(self.comm_date_e) or None,
+                        date=ge(self.comm_date_e) or None,
                         diocese=ge(self.dioc_e) or None,
                         parish=ge(self.church_e) or None,
                     ))

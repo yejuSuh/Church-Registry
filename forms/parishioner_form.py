@@ -76,8 +76,7 @@ class ParishionerForm(QDialog):
 
         self.birth_e = add("생년월일 *", mk_entry(ev("birth_date")), r, 0)
         self.birth_e.setPlaceholderText("YYYY/MM/DD")
-        self.pob_e   = add("출생지 *",   mk_entry(ev("place_of_birth")), r, 1)
-        self.host_e  = add("세대주 이름 *", mk_entry(ev("head_of_household") if existing else prefill_host), r, 2)
+        self.host_e  = add("세대주 이름 *", mk_entry(ev("head_of_household") if existing else prefill_host), r, 1, 2)
         self.rel_cb  = add("관계 *",     mk_combo(RELATIONS, ev("relation") if existing else "본인"), r, 3); r += 1
 
         self.addr_e   = add("주소 *", mk_entry(ev("address")), r, 0, 3)
@@ -111,7 +110,6 @@ class ParishionerForm(QDialog):
             (self.bname_e,   "세례명을 입력하세요."),
             (self.sex_cb,    "성별을 선택하세요."),
             (self.birth_e,   "생년월일을 입력하세요."),
-            (self.pob_e,     "출생지를 입력하세요."),
             (self.addr_e,    "주소를 입력하세요."),
             (self.host_e,    "세대주 이름을 입력하세요."),
         ]
@@ -133,7 +131,6 @@ class ParishionerForm(QDialog):
             baptismal_name=ge(self.bname_e),
             birth_date=ge(self.birth_e),
             sex=sex_db,
-            place_of_birth=ge(self.pob_e),
             address=ge(self.addr_e),
             postal_code=ge(self.postal_e) or None,
             phone=ge(self.phone_e) or None,

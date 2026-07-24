@@ -54,7 +54,7 @@ class DetailPanel(QWidget):
         hdr = QWidget(); hdr.setObjectName("detail_hdr"); hdr.setFixedHeight(68)
         hl = QHBoxLayout(hdr); hl.setContentsMargins(16, 8, 16, 8)
         bname = v("baptismal_name")
-        name_en = v("name_english")
+        name_en = v("name_english")  # alias from _MEMBER_SELECT
         name_txt = v("name")
         if name_en != "—":
             name_txt += f"  {name_en}"
@@ -121,7 +121,7 @@ class DetailPanel(QWidget):
         r2("교적번호", v("display_id"),         "세례명",  v("baptismal_name"))
         r2("세대주",   v("head_of_household"), "관계",    v("relation"))
         r2("구역",     v("district"),           "성별",    {"M": "남", "F": "여"}.get(fv(p, "sex"), "—"))
-        r2("생년월일", v("birth_date"),         "출생지",  v("place_of_birth"))
+        r2("생년월일", v("birth_date"))
         r2("주소",     v("address"),            "우편번호", v("postal_code"))
         r2("전화",     v("phone"),              "이메일",  v("email"))
         r2("직업",     v("occupation"))

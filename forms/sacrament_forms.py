@@ -41,9 +41,9 @@ class BaptismForm(QDialog):
         try:
             self.db.create_baptism(dict(
                 member_id=self.pno, baptism_no=ge(self.no_e),
-                baptism_date=ge(self.date_e), parish=ge(self.church_e),
+                date=ge(self.date_e), parish=ge(self.church_e),
                 officiant_name=ge(self.off_e),
-                officiant_baptismal_name=ge(self.off_bn_e),
+                officiant_name_bapt=ge(self.off_bn_e),
             ))
             if self.on_save: self.on_save()
             self.accept()
@@ -84,7 +84,7 @@ class ConfirmationForm(QDialog):
         try:
             self.db.create_confirmation_record(dict(
                 member_id=self.pno, confirmation_no=ge(self.no_e),
-                confirmation_date=ge(self.date_e), parish=ge(self.church_e),
+                date=ge(self.date_e), parish=ge(self.church_e),
                 officiant_name=ge(self.off_e),
             ))
             if self.on_save: self.on_save()
@@ -129,7 +129,7 @@ class WeddingForm(QDialog):
             is_groom = ge(self.role_cb) == "신랑"
             spouse = ge(self.spouse_e)
             data = dict(
-                wedding_no=ge(self.no_e), wedding_date=ge(self.date_e),
+                wedding_no=ge(self.no_e), date=ge(self.date_e),
                 wedding_type=ge(self.type_cb), officiant_name=ge(self.off_e),
             )
             if is_groom:
@@ -174,7 +174,7 @@ class DeathForm(QDialog):
     def _save(self):
         try:
             self.db.create_death_record(dict(
-                member_id=self.pno, death_date=ge(self.date_e),
+                member_id=self.pno, date_death=ge(self.date_e),
                 cemetery=ge(self.place_e),
                 last_rites_date=ge(self.sick_e),
                 viaticum=ge(self.viat_e),

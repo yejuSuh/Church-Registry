@@ -116,15 +116,15 @@ class PersonPicker(QWidget):
         self.clear_btn.setVisible(False)
 
     def data(self, prefix):
-        """Return a dict of {prefix}_member_id / {prefix}_name_korean / etc,
-        matching the baptism/confirmation table's column naming convention."""
+        """Return a dict of {prefix}_member_id / {prefix}_name_ko / etc,
+        matching the sacrament table column naming convention."""
         d = {
             f"{prefix}_member_id": self.member_id,
-            f"{prefix}_name_korean": self.kr_e.text().strip() or None,
-            f"{prefix}_baptismal_name": self.bn_e.text().strip() or None,
+            f"{prefix}_name_ko": self.kr_e.text().strip() or None,
+            f"{prefix}_name_bapt": self.bn_e.text().strip() or None,
         }
         if self.en_e:
-            d[f"{prefix}_name_english"] = self.en_e.text().strip() or None
+            d[f"{prefix}_name_en"] = self.en_e.text().strip() or None
         if self.phone_e:
             d[f"{prefix}_phone"] = self.phone_e.text().strip() or None
         return d
@@ -153,7 +153,7 @@ class WeddingMatchDialog(QDialog):
         rows = db.search_weddings(name=name, member_id=member_id)
         for r in rows:
             label = (
-                f"{fv(r,'wedding_no')}  {fv(r,'wedding_date')}"
+                f"{fv(r,'wedding_no')}  {fv(r,'date')}"
                 f"  {fv(r,'groom_name')} ↔ {fv(r,'bride_name')}"
             )
             item = QListWidgetItem(label)

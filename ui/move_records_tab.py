@@ -30,7 +30,7 @@ class MoveRecordsTab(QWidget):
             lbl = QLabel("  기록 없음"); lbl.setObjectName("mu"); lay.addWidget(lbl); return
 
         pairs = [
-            ("전입일",    fv(rec, "movein_date")),
+            ("전입일",    fv(rec, "date")),
             ("이전 교구", fv(rec, "former_diocese")),
             ("이전 성당", fv(rec, "former_parish")),
         ]
@@ -44,7 +44,7 @@ class MoveRecordsTab(QWidget):
 
         for rec in records:
             pairs = [
-                ("전출일",  fv(rec, "moveout_date")),
+                ("전출일",  fv(rec, "date")),
                 ("새 교구", fv(rec, "dest_diocese")),
                 ("새 성당", fv(rec, "dest_parish")),
             ]

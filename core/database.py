@@ -12,23 +12,7 @@ class DB:
         self._migrate_schema()
 
     def _migrate_schema(self):
-        # Additive column migrations, guarded so they run once per DB file.
-        with self._conn() as c:
-            wedding_cols = [r["name"] for r in c.execute("PRAGMA table_info(wedding)")]
-            # spouse English names captured on the confirmation intake form
-            for col in ("groom_name_english", "bride_name_english"):
-                if col not in wedding_cols:
-                    c.execute(f"ALTER TABLE wedding ADD COLUMN {col} TEXT")
-
-            member_cols = [r["name"] for r in c.execute("PRAGMA table_info(member)")]
-            if "phone_cell" in member_cols:
-                c.execute("ALTER TABLE member RENAME COLUMN phone_cell TO phone")
-            if "phone_home" in member_cols:
-                c.execute("ALTER TABLE member DROP COLUMN phone_home")
-            if "phone_work" in member_cols:
-                c.execute("ALTER TABLE member DROP COLUMN phone_work")
-
-            c.commit()
+        pass
 
     def _conn(self):
         c = sqlite3.connect(self.path)
@@ -206,18 +190,18 @@ class DB:
 
     # ── Member queries ───────────────────────────────────────────────────────
 
-    # Shared SELECT projection used by search() and get()
+    # Shared projection used by search() and get()
     _MEMBER_SELECT = (
-        "SELECT m.member_id, m.reg_area, m.reg_code,"
-        " m.reg_area || '-' || m.reg_code AS display_id,"
-        " TRIM(m.name_korean) AS name,"
-        " TRIM(m.name_english) AS name_english,"
+        "SELECT m.member_id, m.reg_area,"
+        " m.reg_area || '-' || printf('%05d', m.member_id) AS display_id,"
+        " TRIM(m.name_ko) AS name,"
+        " TRIM(m.name_en) AS name_english,"
         " TRIM(m.baptismal_name) AS baptismal_name,"
         " d.name AS district,"
         " m.address, m.postal_code,"
         " m.phone, m.email,"
         " m.birth_date, m.sex,"
-        " m.place_of_birth, m.occupation,"
+        " m.occupation,"
         " TRIM(f.head_of_household) AS head_of_household,"
         " TRIM(f.relation) AS relation,"
         " COALESCE(f.dues_paying, 0) AS dues_paying,"
@@ -238,15 +222,14 @@ class DB:
         p = []
         if q:
             sql += (
-                " AND (TRIM(m.name_korean) LIKE ? OR TRIM(m.baptismal_name) LIKE ?"
-                " OR (m.reg_area || '-' || m.reg_code) LIKE ?"
+                " AND (TRIM(m.name_ko) LIKE ? OR TRIM(m.baptismal_name) LIKE ?"
                 " OR TRIM(f.head_of_household) LIKE ?)"
             )
-            p += [f"%{q}%"] * 4
+            p += [f"%{q}%"] * 3
         if area:
             sql += " AND m.reg_area=?"
             p.append(area)
-        sql += " ORDER BY m.reg_area, CAST(m.reg_code AS INTEGER)"
+        sql += " ORDER BY m.reg_area, m.member_id"
         with self._conn() as c:
             return c.execute(sql, p).fetchall()
 
@@ -267,9 +250,9 @@ class DB:
             return []
         sql = (
             self._MEMBER_SELECT + " WHERE m.reg_area GLOB '[0-9]*'"
-            " AND (TRIM(m.name_korean) LIKE ? OR TRIM(m.name_english) LIKE ?"
+            " AND (TRIM(m.name_ko) LIKE ? OR TRIM(m.name_en) LIKE ?"
             " OR TRIM(m.baptismal_name) LIKE ?)"
-            " ORDER BY m.reg_area, CAST(m.reg_code AS INTEGER) LIMIT ?"
+            " ORDER BY m.reg_area, m.member_id LIMIT ?"
         )
         p = [f"%{q}%"] * 3 + [limit]
         with self._conn() as c:
@@ -279,8 +262,8 @@ class DB:
         with self._conn() as c:
             base = (
                 "SELECT m.member_id,"
-                " m.reg_area || '-' || m.reg_code AS display_id,"
-                " TRIM(m.name_korean) AS name,"
+                " m.reg_area || '-' || printf('%05d', m.member_id) AS display_id,"
+                " TRIM(m.name_ko) AS name,"
                 " TRIM(m.baptismal_name) AS baptismal_name,"
                 " TRIM(f.relation) AS relation"
                 " FROM member m"
@@ -295,39 +278,36 @@ class DB:
             return c.execute(base + " ORDER BY m.member_id", (head,)).fetchall()
 
     def next_no(self, area_code):
-        # Only consider rows with the real numeric area code (exclude placeholder prefixes)
         with self._conn() as c:
-            rows = c.execute(
-                "SELECT reg_code FROM member"
+            max_id = c.execute(
+                "SELECT MAX(member_id) FROM member"
                 " WHERE reg_area=? AND reg_area GLOB '[0-9]*'",
                 (area_code,),
-            ).fetchall()
-        hi = 0
-        for r in rows:
-            try:
-                hi = max(hi, int(r[0].strip()))
-            except Exception:
-                pass
-        return f"{area_code}-{str(hi + 1).zfill(5)}"
+            ).fetchone()[0] or 0
+        return f"{area_code}-{str(max_id + 1).zfill(5)}"
+
+    def _next_record_id(self, c, table, id_col):
+        """Generate the next YYYY-#### primary key for inactive/death/movein/moveout."""
+        year = datetime.now().year
+        row = c.execute(
+            f"SELECT {id_col} FROM {table} WHERE {id_col} LIKE ? ORDER BY {id_col} DESC LIMIT 1",
+            (f"{year}-%",),
+        ).fetchone()
+        seq = (int(row[0].rsplit("-", 1)[-1]) + 1) if (row and row[0]) else 1
+        return f"{year}-{seq:04d}"
 
     def create(self, data):
-        # data has flat keys matching old schema; split into member + family rows
         display_id = data.get("member_id", "")
-        if "-" in display_id:
-            reg_area, reg_code = display_id.split("-", 1)
-        else:
-            reg_area, reg_code = "", display_id
+        reg_area = display_id.split("-", 1)[0] if "-" in display_id else display_id
 
         with self._conn() as c:
             c.execute(
                 "INSERT INTO member"
-                " (reg_area, reg_code, name_korean, name_english, baptismal_name,"
-                "  birth_date, sex, address, postal_code, phone, email,"
-                "  place_of_birth, occupation)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                " (reg_area, name_ko, name_en, baptismal_name,"
+                "  birth_date, sex, address, postal_code, phone, email, occupation)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     reg_area,
-                    reg_code,
                     data.get("name", ""),
                     data.get("name_english") or None,
                     data.get("baptismal_name", "") or "",
@@ -337,7 +317,6 @@ class DB:
                     data.get("postal_code") or None,
                     data.get("phone") or None,
                     data.get("email") or None,
-                    data.get("place_of_birth") or None,
                     data.get("occupation") or None,
                 ),
             )
@@ -368,9 +347,9 @@ class DB:
         mid = int(pno)
         with self._conn() as c:
             c.execute(
-                "UPDATE member SET name_korean=?, name_english=?, baptismal_name=?,"
+                "UPDATE member SET name_ko=?, name_en=?, baptismal_name=?,"
                 " birth_date=?, sex=?, address=?, postal_code=?, phone=?, email=?,"
-                " place_of_birth=?, occupation=?"
+                " occupation=?"
                 " WHERE member_id=?",
                 (
                     data.get("name", ""),
@@ -382,7 +361,6 @@ class DB:
                     data.get("postal_code") or None,
                     data.get("phone") or None,
                     data.get("email") or None,
-                    data.get("place_of_birth") or None,
                     data.get("occupation") or None,
                     mid,
                 ),
@@ -446,14 +424,14 @@ class DB:
     def get_baptism_records(self, pno):
         with self._conn() as c:
             return c.execute(
-                "SELECT * FROM baptism WHERE member_id=? ORDER BY baptism_date",
+                "SELECT * FROM baptism WHERE member_id=? ORDER BY date",
                 (int(pno),),
             ).fetchall()
 
     def get_confirmation_records(self, pno):
         with self._conn() as c:
             return c.execute(
-                "SELECT * FROM confirmation WHERE member_id=? ORDER BY confirmation_date",
+                "SELECT * FROM confirmation WHERE member_id=? ORDER BY date",
                 (int(pno),),
             ).fetchall()
 
@@ -461,15 +439,15 @@ class DB:
         with self._conn() as c:
             return c.execute(
                 "SELECT * FROM wedding"
-                " WHERE groom_member_id=? OR bride_member_id=?"
-                " ORDER BY wedding_date",
+                " WHERE groom_id=? OR bride_id=?"
+                " ORDER BY date",
                 (int(pno), int(pno)),
             ).fetchall()
 
     def get_death_records(self, pno):
         with self._conn() as c:
             return c.execute(
-                "SELECT * FROM status_death WHERE member_id=? ORDER BY death_date",
+                "SELECT * FROM death WHERE member_id=? ORDER BY date_death",
                 (int(pno),),
             ).fetchall()
 
@@ -478,21 +456,21 @@ class DB:
     def get_communion_records(self, pno):
         with self._conn() as c:
             return c.execute(
-                "SELECT * FROM communion WHERE member_id=? ORDER BY communion_date",
+                "SELECT * FROM communion WHERE member_id=? ORDER BY date",
                 (int(pno),),
             ).fetchall()
 
     def get_movein_record(self, pno):
         with self._conn() as c:
             return c.execute(
-                "SELECT * FROM move_in WHERE member_id=? LIMIT 1",
+                "SELECT * FROM movein WHERE member_id=? LIMIT 1",
                 (int(pno),),
             ).fetchone()
 
     def get_moveout_records(self, pno):
         with self._conn() as c:
             return c.execute(
-                "SELECT * FROM move_out WHERE member_id=? ORDER BY moveout_date",
+                "SELECT * FROM moveout WHERE member_id=? ORDER BY date",
                 (int(pno),),
             ).fetchall()
 
@@ -530,8 +508,8 @@ class DB:
         with self._conn() as c:
             if member_id:
                 rows = c.execute(
-                    "SELECT * FROM wedding WHERE groom_member_id=? OR bride_member_id=?"
-                    " ORDER BY wedding_date DESC LIMIT ?",
+                    "SELECT * FROM wedding WHERE groom_id=? OR bride_id=?"
+                    " ORDER BY date DESC LIMIT ?",
                     (int(member_id), int(member_id), limit),
                 ).fetchall()
                 if rows:
@@ -540,17 +518,14 @@ class DB:
             if name:
                 return c.execute(
                     "SELECT * FROM wedding WHERE groom_name LIKE ? OR bride_name LIKE ?"
-                    " ORDER BY wedding_date DESC LIMIT ?",
+                    " ORDER BY date DESC LIMIT ?",
                     (f"%{name}%", f"%{name}%", limit),
                 ).fetchall()
         return []
 
     def update_member_fields(self, member_id, data):
-        # Partial update of `member` columns only (dynamic SET clause, like
-        # create_baptism/create_confirmation_record). Used by sacrament intake
-        # dialogs to fill in applicant details captured on the paper forms
-        # (place_of_birth, occupation, marital_status, etc.) without touching
-        # `family` the way the full update() method does.
+        # Partial update of `member` columns only (dynamic SET clause).
+        # Keys must match actual column names in the member table.
         if not data:
             return
         cols = list(data.keys())
@@ -583,15 +558,16 @@ class DB:
             c.commit()
 
     def create_death_record(self, data):
-        # Inserts into status_death (new schema); also marks member as deceased
         mid = int(data.get("member_id", 0))
         with self._conn() as c:
+            death_id = self._next_record_id(c, "death", "death_id")
             c.execute(
-                "INSERT INTO status_death (member_id, death_date, cemetery, last_rites_date, viaticum)"
-                " VALUES (?,?,?,?,?)",
+                "INSERT INTO death (death_id, member_id, date_death, cemetery, last_rites_date, viaticum)"
+                " VALUES (?,?,?,?,?,?)",
                 (
+                    death_id,
                     mid,
-                    data.get("death_date", "") or "",
+                    data.get("date_death", "") or "",
                     data.get("cemetery", "") or "",
                     data.get("last_rites_date", "") or "",
                     data.get("viaticum", "") or "",
