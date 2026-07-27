@@ -213,7 +213,7 @@ class ConfirmationIntakeForm(_IntakeDialog):
 
         wrow = QWidget()
         wl = QHBoxLayout(wrow); wl.setContentsMargins(0, 0, 0, 0); wl.setSpacing(10)
-        self.wtype_cb = mk_combo(["(관면)혼배성사", "사회혼"])
+        self.wtype_cb = mk_combo(["성사혼", "관면혼", "단순유효화혼", "바오로특전혼", "근본유효화혼"])
         wl.addWidget(vbox_field("혼인 형태 *", self.wtype_cb, C['card']), 1)
         self.wdate_e = mk_entry()
         wl.addWidget(vbox_field("혼인날짜 *", self.wdate_e, C['card']), 1)

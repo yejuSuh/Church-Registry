@@ -40,6 +40,122 @@ class DB:
             c.execute("CREATE INDEX IF NOT EXISTS idx_family_member    ON family(member_id)")
             c.execute("CREATE INDEX IF NOT EXISTS idx_family_household ON family(household_id)")
             c.execute("CREATE INDEX IF NOT EXISTS idx_household_head   ON household(head_member_id)")
+            # Human-facing registration number (AAA-BB-HHH-MM). Internal placeholder,
+            # separate from the immutable member_id PK; the original legacy number is
+            # preserved in member.notes.
+            member_cols = [r[1] for r in c.execute("PRAGMA table_info(member)").fetchall()]
+            if member_cols and "reg_no" not in member_cols:
+                c.execute("ALTER TABLE member ADD COLUMN reg_no TEXT")
+            c.commit()
+
+        # Add surrogate AUTOINCREMENT PK to sacrament/event tables.
+        # Text identifier columns are kept as UNIQUE (nullable for legacy
+        # records without a number); no Python query code changes needed.
+        with self._conn() as c:
+            for tbl, id_col, extra_cols, extra_schema, indexes, trigger_body in [
+                (
+                    "baptism", "baptism_no",
+                    "member_id,is_adp,date,diocese,parish,officiant_name,"
+                    "officiant_name_bapt,godparent_member_id,godparent_name_ko,"
+                    "godparent_name_en,godparent_name_bapt,status,created_at",
+                    "member_id           INTEGER REFERENCES member(member_id) ON DELETE SET NULL,\n"
+                    "            is_adp              INTEGER DEFAULT 0 CHECK(is_adp IN (0,1)),\n"
+                    "            date                TEXT,\n"
+                    "            diocese             TEXT,\n"
+                    "            parish              TEXT,\n"
+                    "            officiant_name      TEXT,\n"
+                    "            officiant_name_bapt TEXT,\n"
+                    "            godparent_member_id INTEGER REFERENCES member(member_id) ON DELETE SET NULL,\n"
+                    "            godparent_name_ko   TEXT,\n"
+                    "            godparent_name_en   TEXT,\n"
+                    "            godparent_name_bapt TEXT,\n"
+                    "            status              TEXT,\n"
+                    "            created_at          TEXT",
+                    ["CREATE INDEX IF NOT EXISTS idx_baptism_member ON baptism(member_id)"],
+                    "AFTER INSERT ON baptism WHEN NEW.created_at IS NULL\n"
+                    "        BEGIN UPDATE baptism SET created_at = strftime('%m/%d/%Y','now') WHERE rowid = NEW.rowid; END",
+                ),
+                (
+                    "confirmation", "confirmation_no",
+                    "member_id,is_adp,date,diocese,parish,officiant_name,"
+                    "officiant_name_bapt,godparent_member_id,godparent_name_ko,"
+                    "godparent_name_en,godparent_name_bapt,status,created_at",
+                    "member_id           INTEGER REFERENCES member(member_id) ON DELETE SET NULL,\n"
+                    "            is_adp              INTEGER DEFAULT 0 CHECK(is_adp IN (0,1)),\n"
+                    "            date                TEXT,\n"
+                    "            diocese             TEXT,\n"
+                    "            parish              TEXT,\n"
+                    "            officiant_name      TEXT,\n"
+                    "            officiant_name_bapt TEXT,\n"
+                    "            godparent_member_id INTEGER REFERENCES member(member_id) ON DELETE SET NULL,\n"
+                    "            godparent_name_ko   TEXT,\n"
+                    "            godparent_name_en   TEXT,\n"
+                    "            godparent_name_bapt TEXT,\n"
+                    "            status              TEXT,\n"
+                    "            created_at          TEXT",
+                    ["CREATE INDEX IF NOT EXISTS idx_confirm_member ON confirmation(member_id)"],
+                    "AFTER INSERT ON confirmation WHEN NEW.created_at IS NULL\n"
+                    "        BEGIN UPDATE confirmation SET created_at = strftime('%m/%d/%Y','now') WHERE rowid = NEW.rowid; END",
+                ),
+                (
+                    "death", "death_id",
+                    "member_id,date_death,cemetery,last_rites_date,viaticum,created_at",
+                    "member_id       INTEGER NOT NULL UNIQUE REFERENCES member(member_id) ON DELETE CASCADE,\n"
+                    "            date_death      TEXT,\n"
+                    "            cemetery        TEXT,\n"
+                    "            last_rites_date TEXT,\n"
+                    "            viaticum        TEXT,\n"
+                    "            created_at      TEXT",
+                    ["CREATE INDEX IF NOT EXISTS idx_death_member ON death(member_id)"],
+                    "AFTER INSERT ON death WHEN NEW.created_at IS NULL\n"
+                    "        BEGIN UPDATE death SET created_at = strftime('%m/%d/%Y','now') WHERE rowid = NEW.rowid; END",
+                ),
+                (
+                    "movein", "movein_id",
+                    "member_id,date,former_diocese,former_parish,created_at",
+                    "member_id      INTEGER NOT NULL REFERENCES member(member_id) ON DELETE CASCADE,\n"
+                    "            date           TEXT,\n"
+                    "            former_diocese TEXT,\n"
+                    "            former_parish  TEXT,\n"
+                    "            created_at     TEXT",
+                    ["CREATE INDEX IF NOT EXISTS idx_movein_member ON movein(member_id)"],
+                    "AFTER INSERT ON movein WHEN NEW.created_at IS NULL\n"
+                    "        BEGIN UPDATE movein SET created_at = strftime('%m/%d/%Y','now') WHERE rowid = NEW.rowid; END",
+                ),
+                (
+                    "moveout", "moveout_id",
+                    "member_id,date,dest_diocese,dest_parish,created_at",
+                    "member_id    INTEGER NOT NULL REFERENCES member(member_id) ON DELETE CASCADE,\n"
+                    "            date         TEXT,\n"
+                    "            dest_diocese TEXT,\n"
+                    "            dest_parish  TEXT,\n"
+                    "            created_at   TEXT",
+                    ["CREATE INDEX IF NOT EXISTS idx_moveout_member ON moveout(member_id)"],
+                    "AFTER INSERT ON moveout WHEN NEW.created_at IS NULL\n"
+                    "        BEGIN UPDATE moveout SET created_at = strftime('%m/%d/%Y','now') WHERE rowid = NEW.rowid; END",
+                ),
+            ]:
+                cols = [r[1] for r in c.execute(f"PRAGMA table_info({tbl})").fetchall()]
+                if cols and "id" not in cols:
+                    c.execute(f"""
+                        CREATE TABLE {tbl}_new (
+                            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                            {id_col}  TEXT UNIQUE,
+                            {extra_schema}
+                        )
+                    """)
+                    c.execute(
+                        f"INSERT INTO {tbl}_new ({id_col},{extra_cols})"
+                        f" SELECT {id_col},{extra_cols} FROM {tbl}"
+                    )
+                    c.execute(f"DROP TABLE {tbl}")
+                    c.execute(f"ALTER TABLE {tbl}_new RENAME TO {tbl}")
+                    for idx_sql in indexes:
+                        c.execute(idx_sql)
+                    trigger_name = f"trg_{tbl}_created_at"
+                    c.execute(
+                        f"CREATE TRIGGER IF NOT EXISTS {trigger_name} {trigger_body}"
+                    )
             c.commit()
 
     def _conn(self):
@@ -221,7 +337,7 @@ class DB:
     # Shared projection used by search() and get()
     _MEMBER_SELECT = (
         "SELECT m.member_id, m.reg_area,"
-        " m.reg_area || '-' || printf('%05d', m.member_id) AS display_id,"
+        " COALESCE(m.reg_no, m.reg_area || '-' || printf('%05d', m.member_id)) AS display_id,"
         " TRIM(m.name_ko) AS name,"
         " TRIM(m.name_en) AS name_english,"
         " TRIM(m.baptismal_name) AS baptismal_name,"
@@ -298,7 +414,7 @@ class DB:
         with self._conn() as c:
             sql = (
                 "SELECT m.member_id,"
-                " m.reg_area || '-' || printf('%05d', m.member_id) AS display_id,"
+                " COALESCE(m.reg_no, m.reg_area || '-' || printf('%05d', m.member_id)) AS display_id,"
                 " TRIM(m.name_ko) AS name,"
                 " TRIM(m.baptismal_name) AS baptismal_name,"
                 " TRIM(f.relation) AS relation,"
@@ -315,14 +431,26 @@ class DB:
             sql += " ORDER BY CASE WHEN h.head_member_id=m.member_id THEN 0 ELSE 1 END, m.member_id"
             return c.execute(sql, params).fetchall()
 
+    @staticmethod
+    def _next_house(reg_nos):
+        """Given the existing reg_no strings for an area, return the next free
+        3-digit house number. reg_no format: AAA-BB-HHH-MM (district-반-house-member)."""
+        max_h = 0
+        for rn in reg_nos:
+            parts = (rn or "").split("-")
+            if len(parts) >= 3 and parts[2].isdigit():
+                max_h = max(max_h, int(parts[2]))
+        return max_h + 1
+
     def next_no(self, area_code):
+        # New registration number: AAA-BB-HHH-MM (district-반-house-member).
+        # 반 is not tracked yet -> 00; a new member starts a new house at member 01.
         with self._conn() as c:
-            max_id = c.execute(
-                "SELECT MAX(member_id) FROM member"
-                " WHERE reg_area=? AND reg_area GLOB '[0-9]*'",
+            reg_nos = [r[0] for r in c.execute(
+                "SELECT reg_no FROM member WHERE reg_area=? AND reg_no IS NOT NULL",
                 (area_code,),
-            ).fetchone()[0] or 0
-        return f"{area_code}-{str(max_id + 1).zfill(5)}"
+            ).fetchall()]
+        return f"{area_code}-00-{self._next_house(reg_nos):03d}-01"
 
     def _next_record_id(self, c, table, id_col):
         """Generate the next YYYY-#### primary key for inactive/death/movein/moveout."""
@@ -376,6 +504,19 @@ class DB:
                 "INSERT OR IGNORE INTO member_status (member_id, status) VALUES (?, 'active')",
                 (new_mid,),
             )
+            # Assign the new-format registration number (AAA-BB-HHH-MM). Generated
+            # fresh from the current area occupancy so it can never collide, even
+            # if the value shown on the form went stale.
+            if reg_area and reg_area.isdigit():
+                reg_nos = [r[0] for r in c.execute(
+                    "SELECT reg_no FROM member WHERE reg_area=? AND reg_no IS NOT NULL"
+                    " AND member_id!=?",
+                    (reg_area, new_mid),
+                ).fetchall()]
+                c.execute(
+                    "UPDATE member SET reg_no=? WHERE member_id=?",
+                    (f"{reg_area}-00-{self._next_house(reg_nos):03d}-01", new_mid),
+                )
             c.commit()
         return new_mid
 
@@ -681,7 +822,7 @@ class DB:
         with self._conn() as c:
             sql = (
                 "SELECT m.member_id,"
-                " m.reg_area || '-' || printf('%05d', m.member_id) AS display_id,"
+                " COALESCE(m.reg_no, m.reg_area || '-' || printf('%05d', m.member_id)) AS display_id,"
                 " TRIM(m.name_ko) AS name,"
                 " TRIM(m.baptismal_name) AS baptismal_name,"
                 " TRIM(f.relation) AS relation,"
@@ -707,7 +848,7 @@ class DB:
             return c.execute(
                 "SELECT h.household_id, TRIM(m.name_ko) AS head_name,"
                 " TRIM(m.baptismal_name) AS head_bapt,"
-                " m.reg_area || '-' || printf('%05d', m.member_id) AS head_display_id"
+                " COALESCE(m.reg_no, m.reg_area || '-' || printf('%05d', m.member_id)) AS head_display_id"
                 " FROM household h"
                 " JOIN member m ON m.member_id=h.head_member_id"
                 " WHERE TRIM(m.name_ko) LIKE ? OR TRIM(m.baptismal_name) LIKE ?"

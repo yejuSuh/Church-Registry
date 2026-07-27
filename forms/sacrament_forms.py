@@ -110,7 +110,7 @@ class WeddingForm(QDialog):
 
         self.no_e      = add("혼인 번호 *",         mk_entry(), 0, 0)
         self.date_e    = add("혼인일 (YYYY/MM/DD)", mk_entry(), 0, 1)
-        self.type_cb   = add("형태",               mk_combo(["혼인성사", "축복식", "기타"]), 0, 2, 2)
+        self.type_cb   = add("형태",               mk_combo(["성사혼", "관면혼", "단순유효화혼", "바오로특전혼", "근본유효화혼"]), 0, 2, 2)
         self.role_cb   = add("역할",               mk_combo(["신랑", "신부"]), 1, 0)
         self.spouse_e  = add("배우자 이름",          mk_entry(), 1, 1)
         self.off_e     = add("집전자",              mk_entry(), 1, 2, 2)
