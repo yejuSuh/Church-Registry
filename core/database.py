@@ -46,6 +46,9 @@ class DB:
             member_cols = [r[1] for r in c.execute("PRAGMA table_info(member)").fetchall()]
             if member_cols and "reg_no" not in member_cols:
                 c.execute("ALTER TABLE member ADD COLUMN reg_no TEXT")
+            wedding_cols = [r[1] for r in c.execute("PRAGMA table_info(wedding)").fetchall()]
+            if wedding_cols and "status" not in wedding_cols:
+                c.execute("ALTER TABLE wedding ADD COLUMN status TEXT")
             c.commit()
 
         # Add surrogate AUTOINCREMENT PK to sacrament/event tables.
@@ -643,28 +646,37 @@ class DB:
     # ── Sacrament write methods ──────────────────────────────────────────────
 
     def create_baptism(self, data):
+        data.setdefault("status", "예정")
         cols = list(data.keys())
         sql = f"INSERT INTO baptism ({','.join(cols)}) VALUES ({','.join(['?']*len(cols))})"
         with self._conn() as c:
             c.execute(sql, list(data.values())); c.commit()
 
     def create_confirmation_record(self, data):
+        data.setdefault("status", "예정")
         cols = list(data.keys())
         sql = f"INSERT INTO confirmation ({','.join(cols)}) VALUES ({','.join(['?']*len(cols))})"
         with self._conn() as c:
             c.execute(sql, list(data.values())); c.commit()
 
     def create_wedding_record(self, data):
+        data.setdefault("status", "예정")
         cols = list(data.keys())
         sql = f"INSERT INTO wedding ({','.join(cols)}) VALUES ({','.join(['?']*len(cols))})"
         with self._conn() as c:
             c.execute(sql, list(data.values())); c.commit()
 
     def create_communion_record(self, data):
+        data.setdefault("status", "예정")
         cols = list(data.keys())
         sql = f"INSERT INTO communion ({','.join(cols)}) VALUES ({','.join(['?']*len(cols))})"
         with self._conn() as c:
             c.execute(sql, list(data.values())); c.commit()
+
+    def update_sacrament_status(self, table, pk_col, pk_val, status):
+        with self._conn() as c:
+            c.execute(f"UPDATE {table} SET status=? WHERE {pk_col}=?", (status, pk_val))
+            c.commit()
 
     def search_weddings(self, name="", member_id=None, limit=10):
         # Used by the adult confirmation/initiation intake forms to check for

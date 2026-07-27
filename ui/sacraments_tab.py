@@ -6,6 +6,11 @@ from PyQt6.QtWidgets import (
 from core.constants import C
 from ui.ui_helpers import fv, mk_btn, shdr
 
+_STATUS_STYLE = {
+    "예정": "background:#b05a00;color:#fff;padding:1px 7px;border-radius:3px;font-size:11px;",
+    "완료": "background:#2a7a2a;color:#fff;padding:1px 7px;border-radius:3px;font-size:11px;",
+}
+
 
 from forms.sacrament_forms import (
     BaptismForm, WeddingForm, DeathForm,
@@ -24,6 +29,10 @@ class SacramentsTab(QWidget):
         self._load()
 
     def reload(self):
+        self._load()
+
+    def _mark_done(self, table, pk_col, pk_val):
+        self.db.update_sacrament_status(table, pk_col, pk_val, "완료")
         self._load()
 
     def _load(self):
@@ -52,9 +61,8 @@ class SacramentsTab(QWidget):
                 ("집전자 세례명", fv(rec, "officiant_name_bapt")),
                 ("대부/대모",  fv(rec, "godparent_name_ko")),
                 ("대부/대모 세례명", fv(rec, "godparent_name_bapt")),
-                ("상태",       fv(rec, "status")),
             ],
-            baptism_menu)
+            baptism_menu, status_info=("baptism", "id"))
 
         # 견진: one unified application form (성인/청소년 tabs inside)
         self._section(lay, "🕊  견진", self.db.get_confirmation_records(self.pno),
@@ -67,9 +75,8 @@ class SacramentsTab(QWidget):
                 ("집전자 세례명", fv(rec, "officiant_name_bapt")),
                 ("대부/대모",  fv(rec, "godparent_name_ko")),
                 ("대부/대모 세례명", fv(rec, "godparent_name_bapt")),
-                ("상태",       fv(rec, "status")),
             ],
-            lambda: open_dialog(ConfirmationIntakeForm))
+            lambda: open_dialog(ConfirmationIntakeForm), status_info=("confirmation", "id"))
 
         wedding_menu = QMenu(self)
         wedding_menu.addAction("⚡ 빠른 입력", lambda: open_dialog(WeddingForm))
@@ -86,7 +93,7 @@ class SacramentsTab(QWidget):
                 ("집전자",   fv(rec, "officiant_name")),
                 ("집전자 세례명", fv(rec, "officiant_name_bapt")),
             ],
-            wedding_menu)
+            wedding_menu, status_info=("wedding", "wedding_no"))
 
         self._section(lay, "🍞  첫영성체", self.db.get_communion_records(self.pno),
             lambda rec: [
@@ -95,9 +102,8 @@ class SacramentsTab(QWidget):
                 ("교구",         fv(rec, "diocese")),
                 ("성당",         fv(rec, "parish")),
                 ("집전자",       fv(rec, "officiant_name")),
-                ("상태",         fv(rec, "status")),
             ],
-            None)
+            None, status_info=("communion", "communion_no"))
 
         death_menu = QMenu(self)
         death_menu.addAction("⚡ 빠른 입력", lambda: open_dialog(DeathForm))
@@ -114,9 +120,9 @@ class SacramentsTab(QWidget):
         lay.addStretch()
         self._scroll.setWidget(body)
 
-    def _section(self, lay, title, records, fields_fn, action):
-        """`action` is either a QMenu (dropdown add button) or a plain
-        callable (direct add button)."""
+    def _section(self, lay, title, records, fields_fn, action, status_info=None):
+        """`action` is either a QMenu (dropdown add button) or a plain callable.
+        `status_info` is (table_name, pk_col) for sacraments that support 예정/완료."""
         hdr_row = QWidget()
         hl = QHBoxLayout(hdr_row); hl.setContentsMargins(0, 0, 0, 0); hl.setSpacing(6)
         hl.addWidget(shdr(title)); hl.addStretch()
@@ -140,9 +146,33 @@ class SacramentsTab(QWidget):
             pairs = [(l, v) for l, v in fields_fn(rec) if v and v not in ("—", "")]
             if not pairs:
                 continue
+
             card = QWidget()
             card.setStyleSheet(f"background:{C['header']};border-radius:4px;")
-            g = QGridLayout(card); g.setContentsMargins(10, 6, 10, 6)
+            vl = QVBoxLayout(card); vl.setContentsMargins(0, 0, 0, 0); vl.setSpacing(0)
+
+            # Status badge + 완료 button (only for records with an explicit status)
+            if status_info:
+                table, pk_col = status_info
+                pk_val  = rec[pk_col]
+                status  = rec["status"]   # None for legacy rows
+                if status:
+                    sr = QWidget()
+                    sl = QHBoxLayout(sr); sl.setContentsMargins(10, 4, 10, 2); sl.setSpacing(6)
+                    badge = QLabel(status)
+                    badge.setStyleSheet(_STATUS_STYLE.get(status, _STATUS_STYLE["예정"]))
+                    sl.addWidget(badge); sl.addStretch()
+                    if status == "예정":
+                        done_btn = mk_btn("✓ 완료", "btn_success")
+                        done_btn.setFixedHeight(20); done_btn.setFixedWidth(60)
+                        done_btn.clicked.connect(
+                            lambda _, t=table, p=pk_col, v=pk_val: self._mark_done(t, p, v)
+                        )
+                        sl.addWidget(done_btn)
+                    vl.addWidget(sr)
+
+            pairs_w = QWidget()
+            g = QGridLayout(pairs_w); g.setContentsMargins(10, 6, 10, 6)
             g.setHorizontalSpacing(12); g.setVerticalSpacing(3)
             g.setColumnStretch(1, 2); g.setColumnStretch(3, 2)
             row, col = 0, 0
@@ -152,4 +182,5 @@ class SacramentsTab(QWidget):
                 g.addWidget(lw, row, col * 2); g.addWidget(vw, row, col * 2 + 1)
                 col += 1
                 if col >= 2: col = 0; row += 1
+            vl.addWidget(pairs_w)
             lay.addWidget(card)
