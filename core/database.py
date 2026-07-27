@@ -201,10 +201,13 @@ class DB:
                 " code TEXT PRIMARY KEY,"
                 " name TEXT NOT NULL)"
             )
-            c.executemany(
-                "INSERT OR REPLACE INTO district (code, name) VALUES (?,?)", AREAS
-            )
-            c.commit()
+            existing = {r[0]: r[1] for r in c.execute("SELECT code, name FROM district")}
+            dirty = [(code, name) for code, name in AREAS if existing.get(code) != name]
+            if dirty:
+                c.executemany(
+                    "INSERT OR REPLACE INTO district (code, name) VALUES (?,?)", dirty
+                )
+                c.commit()
 
     # ── User / auth methods ──────────────────────────────────────────────────
 
