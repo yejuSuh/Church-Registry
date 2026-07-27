@@ -261,7 +261,6 @@ class LoginDialog(QDialog):
         self._sync_height()
 
     def _complete_login(self, user):
-        self.db.update_last_login(user["username"])
         session.username     = user["username"]
         session.name         = user["name"]
         session.baptism_name = user["baptism_name"]

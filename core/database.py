@@ -178,7 +178,6 @@ class DB:
                     baptism_name TEXT NOT NULL DEFAULT '—',
                     user_level TEXT NOT NULL DEFAULT 'staff',
                     created_at TEXT,
-                    last_login TEXT,
                     is_active INTEGER DEFAULT 1
                 )
             """)
@@ -323,14 +322,6 @@ class DB:
             )
             c.commit()
         return True
-
-    def update_last_login(self, username):
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with self._conn() as c:
-            c.execute(
-                "UPDATE app_users SET last_login=? WHERE username=?", (now, username)
-            )
-            c.commit()
 
     # ── Member queries ───────────────────────────────────────────────────────
 

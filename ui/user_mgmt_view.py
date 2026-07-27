@@ -108,7 +108,7 @@ class UserFormDialog(QDialog):
 
 
 class UserMgmtView(QWidget):
-    _COLS    = ["아이디", "이름", "세례명", "권한", "상태", "마지막 로그인", "작업"]
+    _COLS    = ["아이디", "이름", "세례명", "권한", "상태", "작업"]
     _COL_W   = [120, 100, 100, 70, 65, 150]   # last col stretches
 
     session_changed  = pyqtSignal()   # own name/baptism_name edited
@@ -165,7 +165,6 @@ class UserMgmtView(QWidget):
                 u["baptism_name"],
                 "관리자" if u["user_level"] == "admin" else "일반",
                 "활성" if active else "비활성",
-                u["last_login"] or "—",
             ]
             for j, val in enumerate(cells):
                 item = QTableWidgetItem(val)
