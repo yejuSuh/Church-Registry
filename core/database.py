@@ -49,6 +49,55 @@ class DB:
             wedding_cols = [r[1] for r in c.execute("PRAGMA table_info(wedding)").fetchall()]
             if wedding_cols and "status" not in wedding_cols:
                 c.execute("ALTER TABLE wedding ADD COLUMN status TEXT")
+
+            fam_cols = [r[1] for r in c.execute("PRAGMA table_info(family)").fetchall()]
+            if fam_cols and "relation_other" not in fam_cols:
+                c.execute("ALTER TABLE family ADD COLUMN relation_other TEXT")
+
+                # Infer sex from relation (original values, before normalisation)
+                c.execute("""
+                    UPDATE member SET sex='F'
+                    WHERE member_id IN (
+                        SELECT member_id FROM family
+                        WHERE TRIM(relation) IN
+                            ('처','장녀','딸','녀(딸)','녀','모','장모','여동생','언니','손녀')
+                    )
+                """)
+                c.execute("""
+                    UPDATE member SET sex='M'
+                    WHERE member_id IN (
+                        SELECT member_id FROM family
+                        WHERE TRIM(relation) IN
+                            ('남편','자(아들)','자','부','조부','외손자','손자','사위','남동생')
+                    )
+                """)
+
+                # Preserve original relation text for rows that will become 기타가족
+                named = (
+                    "'본인','호주','세대주','본인인',"
+                    "'처','배우자','남편',"
+                    "'장녀','자녀','자(아들)','자','딸','녀(딸)','녀',"
+                    "'부','모'"
+                )
+                c.execute(f"""
+                    UPDATE family SET relation_other = TRIM(relation)
+                    WHERE TRIM(relation) NOT IN ({named})
+                      AND TRIM(relation) != ''
+                      AND relation IS NOT NULL
+                """)
+
+                # Normalise relation into five categories
+                c.execute("UPDATE family SET relation='세대주' WHERE TRIM(relation) IN ('본인','호주','세대주','본인인')")
+                c.execute("UPDATE family SET relation='배우자' WHERE TRIM(relation) IN ('처','배우자','남편')")
+                c.execute("UPDATE family SET relation='자녀'   WHERE TRIM(relation) IN ('장녀','자녀','자(아들)','자','딸','녀(딸)','녀')")
+                c.execute("UPDATE family SET relation='부모'   WHERE TRIM(relation) IN ('부','모')")
+                c.execute("""
+                    UPDATE family SET relation='기타가족'
+                    WHERE relation NOT IN ('세대주','배우자','자녀','부모','기타가족')
+                      AND relation IS NOT NULL
+                      AND TRIM(relation) != ''
+                """)
+
             c.commit()
 
         # Add surrogate AUTOINCREMENT PK to sacrament/event tables.
