@@ -1,47 +1,77 @@
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QScrollArea, QFrame,
+    QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFrame,
     QLabel, QGridLayout,
 )
 
 from core.constants import C
-from ui.ui_helpers import fv, shdr
+from ui.ui_helpers import fv, mk_btn, shdr
+from forms.sacrament_forms import MoveInForm, MoveOutForm
 
 
 class MoveRecordsTab(QWidget):
     def __init__(self, db, pno):
         super().__init__()
         self.db = db; self.pno = pno
+        self._name = ""
         outer = QVBoxLayout(self); outer.setContentsMargins(0, 0, 0, 0); outer.setSpacing(0)
-        scroll = QScrollArea(); scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        outer.addWidget(scroll, 1)
+        self._scroll = QScrollArea(); self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        outer.addWidget(self._scroll, 1)
+        self._load()
+
+    def reload(self):
+        self._load()
+
+    def _load(self):
+        p = self.db.get(self.pno)
+        self._name = fv(p, "name") if p else ""
 
         body = QWidget(); body.setObjectName("card")
         lay = QVBoxLayout(body); lay.setContentsMargins(12, 8, 12, 16); lay.setSpacing(10)
         self._build_movein(lay)
         self._build_moveout(lay)
         lay.addStretch()
-        scroll.setWidget(body)
+        self._scroll.setWidget(body)
+
+    def _open(self, cls):
+        cls(self, self.db, self.pno, self._name, on_save=self.reload).exec()
 
     def _build_movein(self, lay):
-        lay.addWidget(shdr("📥  전입 기록"))
-        rec = self.db.get_movein_record(self.pno)
-        if not rec:
-            lbl = QLabel("  기록 없음"); lbl.setObjectName("mu"); lay.addWidget(lbl); return
+        hdr = QWidget()
+        hl = QHBoxLayout(hdr); hl.setContentsMargins(0, 0, 0, 0); hl.setSpacing(6)
+        hl.addWidget(shdr("📥  전입 기록")); hl.addStretch()
+        btn = mk_btn("+ 추가", "btn_success")
+        btn.setFixedHeight(26); btn.setFixedWidth(68)
+        btn.clicked.connect(lambda: self._open(MoveInForm))
+        hl.addWidget(btn)
+        lay.addWidget(hdr)
 
-        pairs = [
-            ("전입일",    fv(rec, "date")),
-            ("이전 교구", fv(rec, "former_diocese")),
-            ("이전 성당", fv(rec, "former_parish")),
-        ]
-        lay.addWidget(self._record_card(pairs))
+        records = self.db.get_movein_records(self.pno)
+        if not records:
+            lbl = QLabel("  기록 없음"); lbl.setObjectName("mu"); lay.addWidget(lbl)
+            return
+        for rec in records:
+            pairs = [
+                ("전입일",    fv(rec, "date")),
+                ("이전 교구", fv(rec, "former_diocese")),
+                ("이전 성당", fv(rec, "former_parish")),
+            ]
+            lay.addWidget(self._record_card(pairs))
 
     def _build_moveout(self, lay):
-        lay.addWidget(shdr("📤  전출 기록"))
+        hdr = QWidget()
+        hl = QHBoxLayout(hdr); hl.setContentsMargins(0, 0, 0, 0); hl.setSpacing(6)
+        hl.addWidget(shdr("📤  전출 기록")); hl.addStretch()
+        btn = mk_btn("+ 추가", "btn_success")
+        btn.setFixedHeight(26); btn.setFixedWidth(68)
+        btn.clicked.connect(lambda: self._open(MoveOutForm))
+        hl.addWidget(btn)
+        lay.addWidget(hdr)
+
         records = self.db.get_moveout_records(self.pno)
         if not records:
-            lbl = QLabel("  기록 없음"); lbl.setObjectName("mu"); lay.addWidget(lbl); return
-
+            lbl = QLabel("  기록 없음"); lbl.setObjectName("mu"); lay.addWidget(lbl)
+            return
         for rec in records:
             pairs = [
                 ("전출일",  fv(rec, "date")),
@@ -65,5 +95,3 @@ class MoveRecordsTab(QWidget):
             col += 1
             if col >= 2: col = 0; row += 1
         return card
-
-

@@ -678,12 +678,12 @@ class DB:
                 (int(pno),),
             ).fetchall()
 
-    def get_movein_record(self, pno):
+    def get_movein_records(self, pno):
         with self._conn() as c:
             return c.execute(
-                "SELECT * FROM movein WHERE member_id=? LIMIT 1",
+                "SELECT * FROM movein WHERE member_id=? ORDER BY date",
                 (int(pno),),
-            ).fetchone()
+            ).fetchall()
 
     def get_moveout_records(self, pno):
         with self._conn() as c:
@@ -691,6 +691,34 @@ class DB:
                 "SELECT * FROM moveout WHERE member_id=? ORDER BY date",
                 (int(pno),),
             ).fetchall()
+
+    def create_movein_record(self, data):
+        mid = int(data.get("member_id", 0))
+        with self._conn() as c:
+            movein_id = self._next_record_id(c, "movein", "movein_id")
+            c.execute(
+                "INSERT INTO movein (movein_id, member_id, date, former_diocese, former_parish)"
+                " VALUES (?,?,?,?,?)",
+                (movein_id, mid,
+                 data.get("date") or None,
+                 data.get("former_diocese") or None,
+                 data.get("former_parish") or None),
+            )
+            c.commit()
+
+    def create_moveout_record(self, data):
+        mid = int(data.get("member_id", 0))
+        with self._conn() as c:
+            moveout_id = self._next_record_id(c, "moveout", "moveout_id")
+            c.execute(
+                "INSERT INTO moveout (moveout_id, member_id, date, dest_diocese, dest_parish)"
+                " VALUES (?,?,?,?,?)",
+                (moveout_id, mid,
+                 data.get("date") or None,
+                 data.get("dest_diocese") or None,
+                 data.get("dest_parish") or None),
+            )
+            c.commit()
 
     # ── Sacrament write methods ──────────────────────────────────────────────
 

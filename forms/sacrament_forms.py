@@ -183,3 +183,87 @@ class DeathForm(QDialog):
             self.accept()
         except Exception as e:
             QMessageBox.critical(self, "저장 오류", str(e))
+
+
+class MoveInForm(QDialog):
+    def __init__(self, parent, db, pno, name, on_save=None):
+        super().__init__(parent)
+        self.db = db; self.pno = pno; self.on_save = on_save
+        self.setWindowTitle("전입 기록 추가"); self.resize(480, 160); self.setModal(True)
+        outer = QVBoxLayout(self); outer.setContentsMargins(0, 0, 0, 0); outer.setSpacing(0)
+        body = QWidget(); body.setObjectName("card")
+        g = QGridLayout(body); g.setContentsMargins(16, 12, 16, 12)
+        g.setHorizontalSpacing(16); g.setVerticalSpacing(6)
+        for col in range(3): g.setColumnStretch(col, 1)
+        outer.addWidget(body, 1)
+
+        def add(lbl, w, r, c, span=1):
+            g.addWidget(vbox_field(lbl, w, C['card']), r, c, 1, span); return w
+
+        self.date_e    = add("전입일 (YYYY/MM/DD)", mk_entry(), 0, 0)
+        self.diocese_e = add("이전 교구",           mk_entry(), 0, 1)
+        self.parish_e  = add("이전 성당",           mk_entry(), 0, 2)
+
+        bb = QWidget(); bb.setObjectName("card"); bb.setFixedHeight(54)
+        bbl = QHBoxLayout(bb); bbl.setContentsMargins(12, 8, 12, 8); bbl.addStretch()
+        cb = mk_btn("취소", "btn_muted"); sb = mk_btn("💾  저장", "btn_accent")
+        cb.clicked.connect(self.reject); sb.clicked.connect(self._save)
+        bbl.addWidget(cb); bbl.addWidget(sb); outer.addWidget(bb)
+
+    def _save(self):
+        if not ge(self.date_e):
+            QMessageBox.warning(self, "오류", "전입일을 입력하세요.")
+            return
+        try:
+            self.db.create_movein_record(dict(
+                member_id=self.pno,
+                date=ge(self.date_e),
+                former_diocese=ge(self.diocese_e),
+                former_parish=ge(self.parish_e),
+            ))
+            if self.on_save: self.on_save()
+            self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "저장 오류", str(e))
+
+
+class MoveOutForm(QDialog):
+    def __init__(self, parent, db, pno, name, on_save=None):
+        super().__init__(parent)
+        self.db = db; self.pno = pno; self.on_save = on_save
+        self.setWindowTitle("전출 기록 추가"); self.resize(480, 160); self.setModal(True)
+        outer = QVBoxLayout(self); outer.setContentsMargins(0, 0, 0, 0); outer.setSpacing(0)
+        body = QWidget(); body.setObjectName("card")
+        g = QGridLayout(body); g.setContentsMargins(16, 12, 16, 12)
+        g.setHorizontalSpacing(16); g.setVerticalSpacing(6)
+        for col in range(3): g.setColumnStretch(col, 1)
+        outer.addWidget(body, 1)
+
+        def add(lbl, w, r, c, span=1):
+            g.addWidget(vbox_field(lbl, w, C['card']), r, c, 1, span); return w
+
+        self.date_e    = add("전출일 (YYYY/MM/DD)", mk_entry(), 0, 0)
+        self.diocese_e = add("새 교구",             mk_entry(), 0, 1)
+        self.parish_e  = add("새 성당",             mk_entry(), 0, 2)
+
+        bb = QWidget(); bb.setObjectName("card"); bb.setFixedHeight(54)
+        bbl = QHBoxLayout(bb); bbl.setContentsMargins(12, 8, 12, 8); bbl.addStretch()
+        cb = mk_btn("취소", "btn_muted"); sb = mk_btn("💾  저장", "btn_accent")
+        cb.clicked.connect(self.reject); sb.clicked.connect(self._save)
+        bbl.addWidget(cb); bbl.addWidget(sb); outer.addWidget(bb)
+
+    def _save(self):
+        if not ge(self.date_e):
+            QMessageBox.warning(self, "오류", "전출일을 입력하세요.")
+            return
+        try:
+            self.db.create_moveout_record(dict(
+                member_id=self.pno,
+                date=ge(self.date_e),
+                dest_diocese=ge(self.diocese_e),
+                dest_parish=ge(self.parish_e),
+            ))
+            if self.on_save: self.on_save()
+            self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "저장 오류", str(e))
