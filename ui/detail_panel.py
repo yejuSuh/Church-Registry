@@ -13,6 +13,8 @@ from forms.household_dialog import HouseholdDialog
 
 
 class DetailPanel(QWidget):
+    """Right-hand panel showing a single member's info, sacraments, move records, family, and household tabs."""
+
     edit_sig   = pyqtSignal(str)
     delete_sig = pyqtSignal(str)
 

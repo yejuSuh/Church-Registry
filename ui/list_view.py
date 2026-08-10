@@ -128,7 +128,7 @@ class ListView(QWidget):
         fb = QWidget(); fb.setObjectName("filterbar"); fb.setFixedHeight(48)
         fbl = QHBoxLayout(fb); fbl.setContentsMargins(10, 6, 10, 6); fbl.setSpacing(8)
         self.q_le = QLineEdit()
-        self.q_le.setPlaceholderText("🔍  이름 / 세례명 / 교적번호 / 세대주")
+        self.q_le.setPlaceholderText("🔍  이름 / 세례명 / 세대주")
         self.q_le.setFixedWidth(280)
         self.area_cb = QComboBox()
         self.area_cb.addItem("전체 구역")

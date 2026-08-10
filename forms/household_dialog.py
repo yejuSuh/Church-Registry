@@ -228,7 +228,7 @@ class HouseholdDialog(QDialog):
         mabl = QHBoxLayout(mab); mabl.setContentsMargins(0, 0, 0, 0); mabl.setSpacing(6)
         rel_btn  = mk_btn("관계 변경", "btn_muted")
         head_btn = mk_btn("세대주로 지정", "btn_muted")
-        rm_btn   = mk_btn("제거", "btn_danger")
+        rm_btn   = mk_btn("삭제", "btn_danger")
         rel_btn.clicked.connect(lambda: self._change_relation(household_id))
         head_btn.clicked.connect(lambda: self._change_head(household_id))
         rm_btn.clicked.connect(lambda: self._remove_member(household_id))
@@ -324,10 +324,10 @@ class HouseholdDialog(QDialog):
         if mid is None:
             QMessageBox.warning(self, "선택", "구성원을 선택하세요."); return
         if is_head:
-            QMessageBox.warning(self, "세대주", "세대주는 제거할 수 없습니다. 먼저 세대주를 변경하세요.")
+            QMessageBox.warning(self, "세대주", "세대주는 삭제할 수 없습니다. 먼저 세대주를 변경하세요.")
             return
         if QMessageBox.question(
-            self, "구성원 제거", "선택한 구성원을 세대에서 제거하시겠습니까?"
+            self, "구성원 삭제", "선택한 구성원을 세대에서 삭제하시겠습니까?"
         ) != QMessageBox.StandardButton.Yes:
             return
         self.db.leave_household(mid)

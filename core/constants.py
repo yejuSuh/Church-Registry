@@ -12,7 +12,8 @@ else:
     # go up one level rather than using this file's own directory.
     _DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-DB_PATH = os.path.join(_DIR, "parish.db")
+# Database path
+DB_PATH = os.path.join(_DIR, "parish_test.db")
 _ARROW_SVG   = os.path.join(_DIR, "assets", "arrow_down.svg").replace("\\", "/")
 
 # ── Design tokens ─────────────────────────────────────────────────────────────
@@ -114,9 +115,6 @@ QTabBar::tab:selected{{color:{C['accent']};background:{C['card']};
 QTabBar::tab:hover:!selected{{background:{C['border']};}}
 """
 
-# 구역 codes and names live in area_code.txt (one "code name" pair per line,
-# next to parish.db) so the parish can edit them without touching code. The
-# hardcoded list is only a fallback if the file is missing.
 _AREA_FILE = os.path.join(_DIR, "area_code.txt")
 
 def _load_areas():

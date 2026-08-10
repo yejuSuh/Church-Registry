@@ -87,24 +87,22 @@ class PriorBaptismBlock(QWidget):
         star = "" if has_existing else " *"
         row = QWidget()
         rl = QHBoxLayout(row); rl.setContentsMargins(0, 0, 0, 0); rl.setSpacing(10)
-        self.no_e = mk_entry(); rl.addWidget(vbox_field(f"세례 번호{star}", self.no_e, C['card']), 1)
         self.date_e = mk_entry(); rl.addWidget(vbox_field(f"세례일자{star}", self.date_e, C['card']), 1)
         self.dioc_e = mk_entry(); rl.addWidget(vbox_field(f"세례교구{star}", self.dioc_e, C['card']), 1)
         self.par_e = mk_entry(); rl.addWidget(vbox_field(f"세례본당{star}", self.par_e, C['card']), 1)
         lay.addWidget(row)
 
         if has_existing:
-            for w in (self.no_e, self.date_e, self.dioc_e, self.par_e):
+            for w in (self.date_e, self.dioc_e, self.par_e):
                 w.setEnabled(False)
 
     def maybe_create(self, db, member_id):
         if self.has_existing:
             return
-        no = self.no_e.text().strip()
-        if not no:
+        if not self.date_e.text().strip():
             return
         db.create_baptism(dict(
-            baptism_no=no, member_id=member_id,
+            member_id=member_id,
             date=self.date_e.text().strip() or None,
             diocese=self.dioc_e.text().strip() or None,
             parish=self.par_e.text().strip() or None,
@@ -114,6 +112,8 @@ class PriorBaptismBlock(QWidget):
 # ── Dialog scaffolding ───────────────────────────────────────────────────────
 
 class _IntakeDialog(QDialog):
+    """Base class for full sacrament intake dialogs; provides shared grid helpers."""
+
     def __init__(self, parent, db, pno, name, title, size, on_save=None):
         super().__init__(parent)
         self.db = db; self.pno = pno; self.on_save = on_save
@@ -161,6 +161,7 @@ class _IntakeDialog(QDialog):
 
 
 class ConfirmationIntakeForm(_IntakeDialog):
+    """Full 견진성사 신청서: applicant info, prior baptism, sponsor, and adult/youth tabs."""
     """Unified 견진성사 신청서: common required blocks (applicant, baptism
     info, sponsor, rite info) plus a 성인/청소년 tab for the type-specific
     fields. Replaces the separate adult/RCIA/youth forms."""
@@ -178,11 +179,11 @@ class ConfirmationIntakeForm(_IntakeDialog):
         self.grid.addWidget(self.sponsor, r, 0, 1, 4); r += 1
 
         self.hdr("🕊  견진 정보", r); r += 1
-        self.no_e = self.add("견진 번호 *", mk_entry(), r, 0)
-        self.date_e = self.add("성사 예정일 (YYYY/MM/DD) *", mk_entry(), r, 1)
-        self.off_e = self.add("집전사제/(대)주교 *", mk_entry(), r, 2, 2); r += 1
+        self.date_e = self.add("성사 예정일 (YYYY/MM/DD) *", mk_entry(), r, 0)
+        self.off_e = self.add("집전사제/(대)주교 *", mk_entry(), r, 1, 3); r += 1
         self.dioc_e = self.add("교구", mk_entry(), r, 0)
-        self.church_e = self.add("성당", mk_entry(), r, 1); r += 1
+        self.church_e = self.add("성당", mk_entry(), r, 1)
+        self.cname_e = self.add("견진명", mk_entry(), r, 2); r += 1
 
         self.tabs = QTabWidget()
         self.tabs.addTab(self._build_adult_tab(), "성인")
@@ -213,7 +214,7 @@ class ConfirmationIntakeForm(_IntakeDialog):
 
         wrow = QWidget()
         wl = QHBoxLayout(wrow); wl.setContentsMargins(0, 0, 0, 0); wl.setSpacing(10)
-        self.wtype_cb = mk_combo(["성사혼", "관면혼", "단순유효화혼", "바오로특전혼", "근본유효화혼"])
+        self.wtype_cb = mk_combo(["성사혼", "관면혼", "단순유효화혼", "바오로특전혼", "근본유효화혼", "기타"])
         wl.addWidget(vbox_field("혼인 형태 *", self.wtype_cb, C['card']), 1)
         self.wdate_e = mk_entry()
         wl.addWidget(vbox_field("혼인날짜 *", self.wdate_e, C['card']), 1)
@@ -221,10 +222,16 @@ class ConfirmationIntakeForm(_IntakeDialog):
         wl.addWidget(vbox_field("예식 집전자 *", self.woff_e, C['card']), 1)
         sl.addWidget(wrow)
 
+        wrow_other = QWidget()
+        wl_other = QHBoxLayout(wrow_other); wl_other.setContentsMargins(0, 0, 0, 0)
+        self.wtype_other_e = mk_entry(); self.wtype_other_e.setPlaceholderText("혼인 형태를 직접 입력하세요")
+        wl_other.addWidget(vbox_field("형태 직접입력", self.wtype_other_e, C['card']), 1)
+        wrow_other.setVisible(False)
+        self.wtype_cb.currentTextChanged.connect(lambda t: wrow_other.setVisible(t == "기타"))
+        sl.addWidget(wrow_other)
+
         wrow2 = QWidget()
         wl2 = QHBoxLayout(wrow2); wl2.setContentsMargins(0, 0, 0, 0); wl2.setSpacing(10)
-        self.wno_e = mk_entry()
-        wl2.addWidget(vbox_field("혼인 번호 (신규 생성 시 필요)", self.wno_e, C['card']), 1)
         find_btn = mk_btn("🔍 기존 혼인기록 찾기", "btn_muted")
         find_btn.clicked.connect(self._find_wedding)
         wl2.addWidget(find_btn, 1)
@@ -262,11 +269,12 @@ class ConfirmationIntakeForm(_IntakeDialog):
         if dlg.exec() == QDialog.DialogCode.Accepted and dlg.chosen:
             r = dlg.chosen
             self._matched_wedding_no = r["wedding_no"]
-            self.wno_e.setText(fv(r, "wedding_no")); self.wno_e.setReadOnly(True)
             self.wdate_e.setText(fv(r, "date"))
             idx = self.wtype_cb.findText(fv(r, "wedding_type"), Qt.MatchFlag.MatchContains)
             if idx >= 0:
                 self.wtype_cb.setCurrentIndex(idx)
+            if fv(r, "wedding_type") == "기타":
+                self.wtype_other_e.setText(fv(r, "type_other") or "")
             self.woff_e.setText(fv(r, "officiant_name"))
 
     def _resolve_wedding(self, marital_status):
@@ -277,16 +285,17 @@ class ConfirmationIntakeForm(_IntakeDialog):
         if self._matched_wedding_no:
             return self._matched_wedding_no
         spouse_name = self.spouse.kr_e.text().strip()
-        wno = ge(self.wno_e)
-        if not spouse_name or not wno:
+        if not spouse_name:
             return None
         is_groom = fv(self.member, "sex") == 'M'
+        wtype = ge(self.wtype_cb) or None
         wdata = dict(
-            wedding_no=wno,
             date=ge(self.wdate_e) or None,
-            wedding_type=ge(self.wtype_cb) or None,
+            wedding_type=wtype,
             officiant_name=ge(self.woff_e) or None,
         )
+        if wtype == "기타":
+            wdata["type_other"] = ge(self.wtype_other_e) or None
         applicant_kr = fv(self.member, "name") or None
         applicant_bn = fv(self.member, "baptismal_name") or None
         spouse_bn = self.spouse.bn_e.text().strip() or None
@@ -314,7 +323,6 @@ class ConfirmationIntakeForm(_IntakeDialog):
             is_adult = self.tabs.currentIndex() == 0
 
             checks = [
-                (self.no_e,        "견진 번호를 입력하세요."),
                 (self.date_e,      "성사 예정일을 입력하세요."),
                 (self.off_e,       "집전사제/(대)주교를 입력하세요."),
                 (self.sponsor.kr_e, "대부모 한글 이름을 입력하세요."),
@@ -323,7 +331,6 @@ class ConfirmationIntakeForm(_IntakeDialog):
             ]
             if not self.prior_baptism.has_existing:
                 checks += [
-                    (self.prior_baptism.no_e,   "세례 번호를 입력하세요."),
                     (self.prior_baptism.date_e, "세례일자를 입력하세요."),
                     (self.prior_baptism.dioc_e, "세례교구를 입력하세요."),
                     (self.prior_baptism.par_e,  "세례본당을 입력하세요."),
@@ -355,11 +362,12 @@ class ConfirmationIntakeForm(_IntakeDialog):
             self.prior_baptism.maybe_create(self.db, self.pno)
 
             data = dict(
-                confirmation_no=ge(self.no_e), member_id=self.pno,
+                member_id=self.pno,
                 date=ge(self.date_e),
                 diocese=ge(self.dioc_e) or None,
                 parish=ge(self.church_e) or None,
                 officiant_name=ge(self.off_e),
+                confirmation_name=ge(self.cname_e) or None,
             )
             data.update(self.sponsor.data("godparent"))
 
@@ -380,16 +388,16 @@ class ConfirmationIntakeForm(_IntakeDialog):
 # ── Form 3: 유아세례 및 첫영성체 신청서 — Infant Baptism & First Communion ───
 
 class InfantBaptismForm(_IntakeDialog):
+    """Infant baptism + optional first communion intake form; links parents to household."""
     def __init__(self, parent, db, pno, name, on_save=None):
         super().__init__(parent, db, pno, name, "유아세례 및 첫영성체 신청서", (720, 780), on_save)
         r = 0
         self.grid.addWidget(member_summary(self.member), r, 0, 1, 4); r += 1
 
         self.hdr("✝  세례 정보", r); r += 1
-        self.no_e = self.add("세례 번호 *", mk_entry(), r, 0)
-        self.date_e = self.add("세례일 (예정/실시, YYYY/MM/DD)", mk_entry(), r, 1)
-        self.dioc_e = self.add("교구", mk_entry(), r, 2)
-        self.church_e = self.add("성당", mk_entry(), r, 3); r += 1
+        self.date_e = self.add("세례일 (예정/실시, YYYY/MM/DD)", mk_entry(), r, 0)
+        self.dioc_e = self.add("교구", mk_entry(), r, 1)
+        self.church_e = self.add("성당", mk_entry(), r, 2); r += 1
         self.off_e = self.add("집전자/부제", mk_entry(), r, 0)
         self.off_bn_e = self.add("집전자 세례명", mk_entry(), r, 1); r += 1
 
@@ -409,8 +417,6 @@ class InfantBaptismForm(_IntakeDialog):
 
         self.comm_group = QWidget()
         cl = QHBoxLayout(self.comm_group); cl.setContentsMargins(0, 0, 0, 0); cl.setSpacing(10)
-        self.comm_no_e = mk_entry()
-        cl.addWidget(vbox_field("첫영성체 번호 *", self.comm_no_e, C['card']), 1)
         self.comm_date_e = mk_entry()
         cl.addWidget(vbox_field("첫영성체일 (예정/실시)", self.comm_date_e, C['card']), 1)
         self.comm_cb.toggled.connect(self.comm_group.setVisible)
@@ -421,13 +427,8 @@ class InfantBaptismForm(_IntakeDialog):
 
     def _save(self):
         try:
-            no = ge(self.no_e)
-            if not no:
-                QMessageBox.warning(self, "오류", "세례 번호를 입력하세요.")
-                return
-
             data = dict(
-                baptism_no=no, member_id=self.pno,
+                member_id=self.pno,
                 date=ge(self.date_e) or None,
                 diocese=ge(self.dioc_e) or None,
                 parish=ge(self.church_e) or None,
@@ -438,14 +439,12 @@ class InfantBaptismForm(_IntakeDialog):
             self.db.create_baptism(data)
 
             if self.comm_cb.isChecked():
-                cno = ge(self.comm_no_e)
-                if cno:
-                    self.db.create_communion_record(dict(
-                        communion_no=cno, member_id=self.pno,
-                        date=ge(self.comm_date_e) or None,
-                        diocese=ge(self.dioc_e) or None,
-                        parish=ge(self.church_e) or None,
-                    ))
+                self.db.create_communion_record(dict(
+                    member_id=self.pno,
+                    date=ge(self.comm_date_e) or None,
+                    diocese=ge(self.dioc_e) or None,
+                    parish=ge(self.church_e) or None,
+                ))
 
             self._link_parents(self.father, self.mother)
 

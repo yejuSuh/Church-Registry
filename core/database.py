@@ -5,13 +5,17 @@ from core.constants import AREAS
 
 
 class DB:
+    """SQLite data-access layer; one instance is shared across the whole app."""
+
     def __init__(self, path):
+        """Open (or create) the database at path and bring the schema up to date."""
         self.path = path
         self._init_users()
         self._init_districts()
         self._migrate_schema()
 
     def _migrate_schema(self):
+        """Idempotently apply schema changes; safe to run on every startup."""
         with self._conn() as c:
             c.execute("""
                 CREATE TABLE IF NOT EXISTS household (
@@ -46,9 +50,18 @@ class DB:
             member_cols = [r[1] for r in c.execute("PRAGMA table_info(member)").fetchall()]
             if member_cols and "reg_no" not in member_cols:
                 c.execute("ALTER TABLE member ADD COLUMN reg_no TEXT")
+            conf_cols = [r[1] for r in c.execute("PRAGMA table_info(confirmation)").fetchall()]
+            if conf_cols and "confirmation_name" not in conf_cols:
+                c.execute("ALTER TABLE confirmation ADD COLUMN confirmation_name TEXT")
+            death_cols = [r[1] for r in c.execute("PRAGMA table_info(death)").fetchall()]
+            if death_cols and "viaticum" in death_cols:
+                c.execute("ALTER TABLE death DROP COLUMN viaticum")
+
             wedding_cols = [r[1] for r in c.execute("PRAGMA table_info(wedding)").fetchall()]
             if wedding_cols and "status" not in wedding_cols:
                 c.execute("ALTER TABLE wedding ADD COLUMN status TEXT")
+            if wedding_cols and "type_other" not in wedding_cols:
+                c.execute("ALTER TABLE wedding ADD COLUMN type_other TEXT")
 
             fam_cols = [r[1] for r in c.execute("PRAGMA table_info(family)").fetchall()]
             if fam_cols and "relation_other" not in fam_cols:
@@ -151,12 +164,11 @@ class DB:
                 ),
                 (
                     "death", "death_id",
-                    "member_id,date_death,cemetery,last_rites_date,viaticum,created_at",
+                    "member_id,date_death,cemetery,last_rites_date,created_at",
                     "member_id       INTEGER NOT NULL UNIQUE REFERENCES member(member_id) ON DELETE CASCADE,\n"
                     "            date_death      TEXT,\n"
                     "            cemetery        TEXT,\n"
                     "            last_rites_date TEXT,\n"
-                    "            viaticum        TEXT,\n"
                     "            created_at      TEXT",
                     ["CREATE INDEX IF NOT EXISTS idx_death_member ON death(member_id)"],
                     "AFTER INSERT ON death WHEN NEW.created_at IS NULL\n"
@@ -211,6 +223,7 @@ class DB:
             c.commit()
 
     def _conn(self):
+        """Return a new connection with Row factory and foreign-key enforcement enabled."""
         c = sqlite3.connect(self.path)
         c.row_factory = sqlite3.Row
         # SQLite has FK enforcement OFF by default per-connection; without this,
@@ -220,6 +233,7 @@ class DB:
         return c
 
     def _init_users(self):
+        """Create app_users table and seed a default admin if the table is empty."""
         with self._conn() as c:
             c.execute("""
                 CREATE TABLE IF NOT EXISTS app_users (
@@ -242,6 +256,7 @@ class DB:
                 self.create_user("admin", "admin1234", "관리자", "—", "admin")
 
     def _init_districts(self):
+        """Sync district table from AREAS; only writes rows that changed to avoid spurious DB writes."""
         # reg_area is the stored source of truth for a member's 구역; the
         # human-readable name lives only in this lookup table and is joined in
         # at read time. area_code.txt is the authoritative code→name list
@@ -264,12 +279,14 @@ class DB:
     # ── User / auth methods ──────────────────────────────────────────────────
 
     def get_user(self, username):
+        """Return the app_users row for username, or None if not found."""
         with self._conn() as c:
             return c.execute(
                 "SELECT * FROM app_users WHERE username=?", (username,)
             ).fetchone()
 
     def verify_login(self, username, password):
+        """Return the user row if credentials are valid, or None."""
         import bcrypt
         user = self.get_user(username)
         if not user:
@@ -279,12 +296,14 @@ class DB:
         return None
 
     def username_exists(self, username):
+        """Return True if the username is already taken."""
         with self._conn() as c:
             return c.execute(
                 "SELECT 1 FROM app_users WHERE username=?", (username,)
             ).fetchone() is not None
 
     def create_user(self, username, password, name, baptism_name="—", user_level="staff"):
+        """Create a new app_user with a bcrypt-hashed password."""
         import bcrypt
         pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -298,6 +317,7 @@ class DB:
             c.commit()
 
     def update_user(self, username, name, baptism_name, user_level, password=None):
+        """Update profile fields; password is rehashed only when a new value is provided."""
         if password:
             import bcrypt
             pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
@@ -317,6 +337,7 @@ class DB:
                 c.commit()
 
     def update_user_level(self, username, new_level):
+        """Change a user's role (admin/staff) without touching other fields."""
         with self._conn() as c:
             c.execute(
                 "UPDATE app_users SET user_level=? WHERE username=?", (new_level, username)
@@ -324,16 +345,19 @@ class DB:
             c.commit()
 
     def deactivate_user(self, username):
+        """Set is_active=0; the user can no longer log in."""
         with self._conn() as c:
             c.execute("UPDATE app_users SET is_active=0 WHERE username=?", (username,))
             c.commit()
 
     def activate_user(self, username):
+        """Restore is_active=1, allowing the user to log in again."""
         with self._conn() as c:
             c.execute("UPDATE app_users SET is_active=1 WHERE username=?", (username,))
             c.commit()
 
     def delete_user(self, username):
+        """Delete user permanently; returns False if it would remove the last admin."""
         with self._conn() as c:
             target = c.execute(
                 "SELECT user_level FROM app_users WHERE username=?", (username,)
@@ -349,12 +373,14 @@ class DB:
         return True
 
     def list_users(self):
+        """Return all app_users ordered by level then username."""
         with self._conn() as c:
             return c.execute(
                 "SELECT * FROM app_users ORDER BY user_level, username"
             ).fetchall()
 
     def find_username_by_name(self, name, baptism_name):
+        """Look up active usernames by Korean name + baptismal name (for ID recovery)."""
         with self._conn() as c:
             return c.execute(
                 "SELECT username FROM app_users WHERE name=? AND baptism_name=? AND is_active=1",
@@ -362,6 +388,7 @@ class DB:
             ).fetchall()
 
     def reset_password_by_identity(self, username, name, baptism_name, new_password):
+        """Reset password after verifying username + name + baptismal name; returns False on mismatch."""
         import bcrypt
         with self._conn() as c:
             row = c.execute(
@@ -412,6 +439,7 @@ class DB:
     )
 
     def search(self, q="", area=""):
+        """Search active parishioners by name/baptismal name; optionally filter by area code."""
         # Only show real parishioners (numeric reg_area), not placeholder-only members
         sql = self._MEMBER_SELECT + " WHERE m.reg_area GLOB '[0-9]*'"
         p = []
@@ -429,6 +457,7 @@ class DB:
             return c.execute(sql, p).fetchall()
 
     def get(self, pno):
+        """Return the full member row for a single member_id, or None."""
         with self._conn() as c:
             return c.execute(
                 self._MEMBER_SELECT + " WHERE m.member_id=?",
@@ -436,6 +465,7 @@ class DB:
             ).fetchone()
 
     def search_people(self, q, limit=10):
+        """Typeahead search for PersonPicker widgets (godparent, sponsor, spouse, parent)."""
         # Used by PersonPicker to match godparent/sponsor/father/mother/spouse
         # fields on sacrament intake forms against existing parishioners.
         # Restricted to real registered members (numeric reg_area), same as
@@ -454,6 +484,7 @@ class DB:
             return c.execute(sql, p).fetchall()
 
     def household(self, household_id, exclude=None):
+        """Return all family members for a household, optionally excluding one member_id."""
         if not household_id:
             return []
         hid = int(household_id)
@@ -489,6 +520,7 @@ class DB:
         return max_h + 1
 
     def next_no(self, area_code):
+        """Generate the next available registration number (AAA-BB-HHH-MM) for an area."""
         # New registration number: AAA-BB-HHH-MM (district-반-house-member).
         # 반 is not tracked yet -> 00; a new member starts a new house at member 01.
         with self._conn() as c:
@@ -508,7 +540,24 @@ class DB:
         seq = (int(row[0].rsplit("-", 1)[-1]) + 1) if (row and row[0]) else 1
         return f"{year}-{seq:04d}"
 
+    def next_sacrament_no(self, sacrament_type):
+        """Atomically reserve and return the next YYYY-#### number for a sacrament type."""
+        year = datetime.now().year
+        with self._conn() as c:
+            c.execute("""
+                INSERT INTO sacrament_counter (sacrament_type, year, last_count)
+                VALUES (?, ?, 1)
+                ON CONFLICT(sacrament_type, year) DO UPDATE SET last_count = last_count + 1
+            """, (sacrament_type, year))
+            count = c.execute(
+                "SELECT last_count FROM sacrament_counter WHERE sacrament_type=? AND year=?",
+                (sacrament_type, year),
+            ).fetchone()[0]
+            c.commit()
+        return f"{year}-{count:04d}"
+
     def create(self, data):
+        """Insert a new member with family and member_status seed rows; returns the new member_id."""
         display_id = data.get("member_id", "")
         reg_area = display_id.split("-", 1)[0] if "-" in display_id else display_id
 
@@ -567,6 +616,7 @@ class DB:
         return new_mid
 
     def update(self, pno, data):
+        """Update member profile and family dues fields for an existing member."""
         mid = int(pno)
         with self._conn() as c:
             c.execute(
@@ -633,6 +683,7 @@ class DB:
             c.commit()
 
     def hard_delete(self, pno):
+        """Permanently delete a member and all ON DELETE CASCADE-linked rows."""
         with self._conn() as c:
             c.execute("DELETE FROM member WHERE member_id=?", (int(pno),))
             c.commit()
@@ -640,6 +691,7 @@ class DB:
     # ── Sacrament records ────────────────────────────────────────────────────
 
     def get_baptism_records(self, pno):
+        """Return all baptism rows for a member ordered by date."""
         with self._conn() as c:
             return c.execute(
                 "SELECT * FROM baptism WHERE member_id=? ORDER BY date",
@@ -647,6 +699,7 @@ class DB:
             ).fetchall()
 
     def get_confirmation_records(self, pno):
+        """Return all confirmation rows for a member ordered by date."""
         with self._conn() as c:
             return c.execute(
                 "SELECT * FROM confirmation WHERE member_id=? ORDER BY date",
@@ -654,6 +707,7 @@ class DB:
             ).fetchall()
 
     def get_wedding_records(self, pno):
+        """Return all wedding rows where the member appears as groom or bride."""
         with self._conn() as c:
             return c.execute(
                 "SELECT * FROM wedding"
@@ -663,6 +717,7 @@ class DB:
             ).fetchall()
 
     def get_death_records(self, pno):
+        """Return all death rows for a member ordered by date."""
         with self._conn() as c:
             return c.execute(
                 "SELECT * FROM death WHERE member_id=? ORDER BY date_death",
@@ -672,6 +727,7 @@ class DB:
     # ── Move-in / Move-out records ───────────────────────────────────────────
 
     def get_communion_records(self, pno):
+        """Return all first-communion rows for a member ordered by date."""
         with self._conn() as c:
             return c.execute(
                 "SELECT * FROM communion WHERE member_id=? ORDER BY date",
@@ -679,6 +735,7 @@ class DB:
             ).fetchall()
 
     def get_movein_records(self, pno):
+        """Return all move-in records for a member ordered by date."""
         with self._conn() as c:
             return c.execute(
                 "SELECT * FROM movein WHERE member_id=? ORDER BY date",
@@ -686,6 +743,7 @@ class DB:
             ).fetchall()
 
     def get_moveout_records(self, pno):
+        """Return all move-out records for a member ordered by date."""
         with self._conn() as c:
             return c.execute(
                 "SELECT * FROM moveout WHERE member_id=? ORDER BY date",
@@ -693,6 +751,7 @@ class DB:
             ).fetchall()
 
     def create_movein_record(self, data):
+        """Insert a move-in record with an auto-generated YYYY-#### movein_id."""
         mid = int(data.get("member_id", 0))
         with self._conn() as c:
             movein_id = self._next_record_id(c, "movein", "movein_id")
@@ -707,6 +766,7 @@ class DB:
             c.commit()
 
     def create_moveout_record(self, data):
+        """Insert a move-out record with an auto-generated YYYY-#### moveout_id."""
         mid = int(data.get("member_id", 0))
         with self._conn() as c:
             moveout_id = self._next_record_id(c, "moveout", "moveout_id")
@@ -723,39 +783,59 @@ class DB:
     # ── Sacrament write methods ──────────────────────────────────────────────
 
     def create_baptism(self, data):
+        """Insert a baptism record; auto-assigns baptism_no and defaults status to '예정'."""
         data.setdefault("status", "예정")
+        if not data.get("baptism_no"):
+            data["baptism_no"] = self.next_sacrament_no("baptism")
         cols = list(data.keys())
         sql = f"INSERT INTO baptism ({','.join(cols)}) VALUES ({','.join(['?']*len(cols))})"
         with self._conn() as c:
             c.execute(sql, list(data.values())); c.commit()
 
     def create_confirmation_record(self, data):
+        """Insert a confirmation record; auto-assigns confirmation_no and defaults status to '예정'."""
         data.setdefault("status", "예정")
+        if not data.get("confirmation_no"):
+            data["confirmation_no"] = self.next_sacrament_no("confirmation")
         cols = list(data.keys())
         sql = f"INSERT INTO confirmation ({','.join(cols)}) VALUES ({','.join(['?']*len(cols))})"
         with self._conn() as c:
             c.execute(sql, list(data.values())); c.commit()
 
     def create_wedding_record(self, data):
+        """Insert a wedding record; auto-assigns wedding_no and defaults status to '예정'."""
         data.setdefault("status", "예정")
+        if not data.get("wedding_no"):
+            data["wedding_no"] = self.next_sacrament_no("wedding")
         cols = list(data.keys())
         sql = f"INSERT INTO wedding ({','.join(cols)}) VALUES ({','.join(['?']*len(cols))})"
         with self._conn() as c:
             c.execute(sql, list(data.values())); c.commit()
 
     def create_communion_record(self, data):
+        """Insert a first-communion record; auto-assigns communion_no and defaults status to '예정'."""
         data.setdefault("status", "예정")
+        if not data.get("communion_no"):
+            data["communion_no"] = self.next_sacrament_no("communion")
         cols = list(data.keys())
         sql = f"INSERT INTO communion ({','.join(cols)}) VALUES ({','.join(['?']*len(cols))})"
         with self._conn() as c:
             c.execute(sql, list(data.values())); c.commit()
 
     def update_sacrament_status(self, table, pk_col, pk_val, status):
+        """Set the status field (예정/완료) on any sacrament table row identified by pk_col=pk_val."""
         with self._conn() as c:
             c.execute(f"UPDATE {table} SET status=? WHERE {pk_col}=?", (status, pk_val))
             c.commit()
 
+    def delete_sacrament_record(self, table, pk_col, pk_val):
+        """Permanently delete a sacrament row; intended for cancelled '예정' records."""
+        with self._conn() as c:
+            c.execute(f"DELETE FROM {table} WHERE {pk_col}=?", (pk_val,))
+            c.commit()
+
     def search_weddings(self, name="", member_id=None, limit=10):
+        """Find wedding rows by member_id first, then by spouse name; used by WeddingMatchDialog."""
         # Used by the adult confirmation/initiation intake forms to check for
         # an existing wedding row before creating a new one: first by the
         # applicant's own member_id (already recorded as groom/bride), then
@@ -779,6 +859,7 @@ class DB:
         return []
 
     def update_member_fields(self, member_id, data):
+        """Partial update of member columns only; keys must match actual column names."""
         # Partial update of `member` columns only (dynamic SET clause).
         # Keys must match actual column names in the member table.
         if not data:
@@ -793,6 +874,7 @@ class DB:
             c.commit()
 
     def link_child_to_parent(self, member_id, parent_member_id, relation):
+        """Place member into the parent's household with the given relation; no-op if parent has no household."""
         # Links a child to their parent's household when a parent is matched
         # on a sacrament intake form. No-op if the parent has no household yet.
         mid = int(member_id)
@@ -940,19 +1022,19 @@ class DB:
             ).fetchall()
 
     def create_death_record(self, data):
+        """Insert a death record and update the member's status to 'deceased'."""
         mid = int(data.get("member_id", 0))
         with self._conn() as c:
             death_id = self._next_record_id(c, "death", "death_id")
             c.execute(
-                "INSERT INTO death (death_id, member_id, date_death, cemetery, last_rites_date, viaticum)"
-                " VALUES (?,?,?,?,?,?)",
+                "INSERT INTO death (death_id, member_id, date_death, cemetery, last_rites_date)"
+                " VALUES (?,?,?,?,?)",
                 (
                     death_id,
                     mid,
                     data.get("date_death", "") or "",
                     data.get("cemetery", "") or "",
                     data.get("last_rites_date", "") or "",
-                    data.get("viaticum", "") or "",
                 ),
             )
             c.execute(
@@ -965,6 +1047,7 @@ class DB:
     # ── Statistics ───────────────────────────────────────────────────────────
 
     def stats(self):
+        """Return aggregate counts (active, lapsed, baptisms, weddings) and per-area breakdown."""
         with self._conn() as c:
             active   = c.execute(
                 "SELECT COUNT(*) FROM member_status WHERE status='active'"

@@ -11,8 +11,8 @@ if __name__ == "__main__":
 
     if not os.path.exists(DB_PATH):
         QMessageBox.critical(
-            None, "오류",
-            f"데이터베이스 파일을 찾을 수 없습니다:\n{DB_PATH}\n\nparish.db 를 같은 폴더에 놓아주세요.",
+            None, "ERROR",
+            f"데이터베이스 파일을 찾을 수 없습니다.\n{DB_PATH}\n해당 경로에 파일이 존재하는지 확인하세요.",
         )
         sys.exit(1)
 

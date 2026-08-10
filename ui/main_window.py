@@ -18,6 +18,8 @@ from ui.user_mgmt_view import UserMgmtView
 
 
 class MainWindow(QMainWindow):
+    """Main application window: sidebar navigation, parishioner list/detail splitter, stats, and user management."""
+
     def __init__(self, db):
         super().__init__()
         self.db = db

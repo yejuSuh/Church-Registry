@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFrame,
-    QLabel, QGridLayout, QMenu,
+    QLabel, QGridLayout, QMenu, QMessageBox,
 )
 
 from core.constants import C
@@ -19,6 +19,8 @@ from forms.intake_forms import InfantBaptismForm, ConfirmationIntakeForm
 
 
 class SacramentsTab(QWidget):
+    """Scrollable tab displaying all sacrament records for a member with status badges and action buttons."""
+
     def __init__(self, db, pno):
         super().__init__()
         self.db = db; self.pno = pno
@@ -34,6 +36,14 @@ class SacramentsTab(QWidget):
     def _mark_done(self, table, pk_col, pk_val):
         self.db.update_sacrament_status(table, pk_col, pk_val, "완료")
         self._load()
+
+    def _delete_record(self, table, pk_col, pk_val):
+        if QMessageBox.question(
+            self, "삭제 확인", "이 성사 기록을 삭제하시겠습니까?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        ) == QMessageBox.StandardButton.Yes:
+            self.db.delete_sacrament_record(table, pk_col, pk_val)
+            self._load()
 
     def _load(self):
         body = QWidget(); body.setObjectName("card")
@@ -68,6 +78,7 @@ class SacramentsTab(QWidget):
         self._section(lay, "🕊  견진", self.db.get_confirmation_records(self.pno),
             lambda rec: [
                 ("견진번호",   fv(rec, "confirmation_no")),
+                ("견진명",     fv(rec, "confirmation_name")),
                 ("견진일",     fv(rec, "date")),
                 ("교구",       fv(rec, "diocese")),
                 ("견진 성당",  fv(rec, "parish")),
@@ -86,6 +97,7 @@ class SacramentsTab(QWidget):
                 ("혼인번호", fv(rec, "wedding_no")),
                 ("혼인일",   fv(rec, "date")),
                 ("형태",     fv(rec, "wedding_type")),
+                ("형태 상세", fv(rec, "type_other")),
                 ("신랑",     fv(rec, "groom_name")),
                 ("신랑 세례명", fv(rec, "groom_name_bapt")),
                 ("신부",     fv(rec, "bride_name")),
@@ -112,8 +124,7 @@ class SacramentsTab(QWidget):
             lambda rec: [
                 ("사망일",   fv(rec, "date_death")),
                 ("장소",     fv(rec, "cemetery")),
-                ("종부성사",  fv(rec, "last_rites_date")),
-                ("노자성사",  fv(rec, "viaticum")),
+                ("병자성사",  fv(rec, "last_rites_date")),
             ],
             death_menu)
 
@@ -169,6 +180,12 @@ class SacramentsTab(QWidget):
                             lambda _, t=table, p=pk_col, v=pk_val: self._mark_done(t, p, v)
                         )
                         sl.addWidget(done_btn)
+                        del_btn = mk_btn("✕ 삭제", "btn_danger")
+                        del_btn.setFixedHeight(20); del_btn.setFixedWidth(60)
+                        del_btn.clicked.connect(
+                            lambda _, t=table, p=pk_col, v=pk_val: self._delete_record(t, p, v)
+                        )
+                        sl.addWidget(del_btn)
                     vl.addWidget(sr)
 
             pairs_w = QWidget()
