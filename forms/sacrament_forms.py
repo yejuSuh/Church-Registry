@@ -176,7 +176,7 @@ class DeathForm(QDialog):
 
         self.date_e  = add("사망일 (YYYY/MM/DD)",    mk_entry(), 0, 0)
         self.place_e = add("장소 (묘지)",             mk_entry(), 0, 1, 3)
-        self.sick_e  = add("종부성사일 (YYYY/MM/DD)", mk_entry(), 1, 0, 2)
+        self.sick_e  = add("병자성사일 (YYYY/MM/DD)", mk_entry(), 1, 0, 2)
 
         bb = QWidget(); bb.setObjectName("card"); bb.setFixedHeight(54)
         bbl = QHBoxLayout(bb); bbl.setContentsMargins(12, 8, 12, 8); bbl.addStretch()
