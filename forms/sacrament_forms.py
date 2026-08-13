@@ -203,7 +203,7 @@ class MoveInForm(QDialog):
     def __init__(self, parent, db, pno, name, on_save=None):
         super().__init__(parent)
         self.db = db; self.pno = pno; self.on_save = on_save
-        self.setWindowTitle("전입 기록 추가"); self.resize(480, 160); self.setModal(True)
+        self.setWindowTitle("전입 기록 추가"); self.resize(480, 220); self.setModal(True)
         outer = QVBoxLayout(self); outer.setContentsMargins(0, 0, 0, 0); outer.setSpacing(0)
         body = QWidget(); body.setObjectName("card")
         g = QGridLayout(body); g.setContentsMargins(16, 12, 16, 12)
@@ -217,6 +217,7 @@ class MoveInForm(QDialog):
         self.date_e    = add("전입일 (YYYY/MM/DD)", mk_entry(), 0, 0)
         self.diocese_e = add("이전 교구",           mk_entry(), 0, 1)
         self.parish_e  = add("이전 성당",           mk_entry(), 0, 2)
+        self.addr_e    = add("이전 성당 주소",       mk_entry(), 1, 0, 3)
 
         bb = QWidget(); bb.setObjectName("card"); bb.setFixedHeight(54)
         bbl = QHBoxLayout(bb); bbl.setContentsMargins(12, 8, 12, 8); bbl.addStretch()
@@ -234,6 +235,7 @@ class MoveInForm(QDialog):
                 date=ge(self.date_e),
                 former_diocese=ge(self.diocese_e),
                 former_parish=ge(self.parish_e),
+                former_address=ge(self.addr_e) or None,
             ))
             if self.on_save: self.on_save()
             self.accept()
@@ -247,7 +249,7 @@ class MoveOutForm(QDialog):
     def __init__(self, parent, db, pno, name, on_save=None):
         super().__init__(parent)
         self.db = db; self.pno = pno; self.on_save = on_save
-        self.setWindowTitle("전출 기록 추가"); self.resize(480, 160); self.setModal(True)
+        self.setWindowTitle("전출 기록 추가"); self.resize(480, 220); self.setModal(True)
         outer = QVBoxLayout(self); outer.setContentsMargins(0, 0, 0, 0); outer.setSpacing(0)
         body = QWidget(); body.setObjectName("card")
         g = QGridLayout(body); g.setContentsMargins(16, 12, 16, 12)
@@ -261,6 +263,7 @@ class MoveOutForm(QDialog):
         self.date_e    = add("전출일 (YYYY/MM/DD)", mk_entry(), 0, 0)
         self.diocese_e = add("새 교구",             mk_entry(), 0, 1)
         self.parish_e  = add("새 성당",             mk_entry(), 0, 2)
+        self.addr_e    = add("새 성당 주소",         mk_entry(), 1, 0, 3)
 
         bb = QWidget(); bb.setObjectName("card"); bb.setFixedHeight(54)
         bbl = QHBoxLayout(bb); bbl.setContentsMargins(12, 8, 12, 8); bbl.addStretch()
@@ -278,6 +281,7 @@ class MoveOutForm(QDialog):
                 date=ge(self.date_e),
                 dest_diocese=ge(self.diocese_e),
                 dest_parish=ge(self.parish_e),
+                dest_address=ge(self.addr_e) or None,
             ))
             if self.on_save: self.on_save()
             self.accept()

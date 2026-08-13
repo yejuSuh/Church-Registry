@@ -61,6 +61,13 @@ class DB:
                 if cols and "person_name" not in cols:
                     c.execute(f"ALTER TABLE {tbl} ADD COLUMN person_name TEXT")
 
+            movein_cols = [r[1] for r in c.execute("PRAGMA table_info(movein)").fetchall()]
+            if movein_cols and "former_address" not in movein_cols:
+                c.execute("ALTER TABLE movein ADD COLUMN former_address TEXT")
+            moveout_cols = [r[1] for r in c.execute("PRAGMA table_info(moveout)").fetchall()]
+            if moveout_cols and "dest_address" not in moveout_cols:
+                c.execute("ALTER TABLE moveout ADD COLUMN dest_address TEXT")
+
             wedding_cols = [r[1] for r in c.execute("PRAGMA table_info(wedding)").fetchall()]
             if wedding_cols and "status" not in wedding_cols:
                 c.execute("ALTER TABLE wedding ADD COLUMN status TEXT")
@@ -261,11 +268,6 @@ class DB:
 
     def _init_districts(self):
         """Sync district table from AREAS; only writes rows that changed to avoid spurious DB writes."""
-        # reg_area is the stored source of truth for a member's 구역; the
-        # human-readable name lives only in this lookup table and is joined in
-        # at read time. area_code.txt is the authoritative code→name list
-        # (parsed into constants.AREAS), so re-seed with REPLACE on every
-        # startup: editing the file is all it takes to rename a district.
         with self._conn() as c:
             c.execute(
                 "CREATE TABLE IF NOT EXISTS district ("
@@ -760,12 +762,13 @@ class DB:
         with self._conn() as c:
             movein_id = self._next_record_id(c, "movein", "movein_id")
             c.execute(
-                "INSERT INTO movein (movein_id, member_id, date, former_diocese, former_parish)"
-                " VALUES (?,?,?,?,?)",
+                "INSERT INTO movein (movein_id, member_id, date, former_diocese, former_parish, former_address)"
+                " VALUES (?,?,?,?,?,?)",
                 (movein_id, mid,
                  data.get("date") or None,
                  data.get("former_diocese") or None,
-                 data.get("former_parish") or None),
+                 data.get("former_parish") or None,
+                 data.get("former_address") or None),
             )
             c.commit()
 
@@ -775,12 +778,13 @@ class DB:
         with self._conn() as c:
             moveout_id = self._next_record_id(c, "moveout", "moveout_id")
             c.execute(
-                "INSERT INTO moveout (moveout_id, member_id, date, dest_diocese, dest_parish)"
-                " VALUES (?,?,?,?,?)",
+                "INSERT INTO moveout (moveout_id, member_id, date, dest_diocese, dest_parish, dest_address)"
+                " VALUES (?,?,?,?,?,?)",
                 (moveout_id, mid,
                  data.get("date") or None,
                  data.get("dest_diocese") or None,
-                 data.get("dest_parish") or None),
+                 data.get("dest_parish") or None,
+                 data.get("dest_address") or None),
             )
             c.commit()
 

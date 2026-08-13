@@ -52,9 +52,10 @@ class MoveRecordsTab(QWidget):
             return
         for rec in records:
             pairs = [
-                ("전입일",    fv(rec, "date")),
-                ("이전 교구", fv(rec, "former_diocese")),
-                ("이전 성당", fv(rec, "former_parish")),
+                ("전입일",      fv(rec, "date")),
+                ("이전 교구",   fv(rec, "former_diocese")),
+                ("이전 성당",   fv(rec, "former_parish")),
+                ("이전 성당 주소", fv(rec, "former_address")),
             ]
             lay.addWidget(self._record_card(pairs))
 
@@ -74,9 +75,10 @@ class MoveRecordsTab(QWidget):
             return
         for rec in records:
             pairs = [
-                ("전출일",  fv(rec, "date")),
-                ("새 교구", fv(rec, "dest_diocese")),
-                ("새 성당", fv(rec, "dest_parish")),
+                ("전출일",    fv(rec, "date")),
+                ("새 교구",   fv(rec, "dest_diocese")),
+                ("새 성당",   fv(rec, "dest_parish")),
+                ("새 성당 주소", fv(rec, "dest_address")),
             ]
             lay.addWidget(self._record_card(pairs))
 

@@ -324,11 +324,12 @@ class SacramentEntryView(QWidget):
     def _movein_tab(self):
         def build(lay):
             ms = _MemberSearch(self.db); lay.addWidget(ms)
-            date_e = mk_entry(); dioc_e = mk_entry(); par_e = mk_entry()
+            date_e = mk_entry(); dioc_e = mk_entry(); par_e = mk_entry(); addr_e = mk_entry()
             _field_grid(lay, [
                 ("전입일 (YYYY/MM/DD)", date_e, 1),
                 ("이전 교구",           dioc_e, 1),
                 ("이전 성당",           par_e,  1),
+                ("이전 성당 주소",       addr_e, 4),
             ])
             def save():
                 if not self._check_member(ms, self): return
@@ -337,9 +338,10 @@ class SacramentEntryView(QWidget):
                     date=ge(date_e) or None,
                     former_diocese=ge(dioc_e) or None,
                     former_parish=ge(par_e) or None,
+                    former_address=ge(addr_e) or None,
                 ))
                 QMessageBox.information(self, "저장 완료", f"{ms.get_name()} 전입 기록이 저장되었습니다.")
-                self._ok(ms, date_e, dioc_e, par_e)
+                self._ok(ms, date_e, dioc_e, par_e, addr_e)
             self._save_btn(lay, save)
         return _tab_shell(build)
 
@@ -348,11 +350,12 @@ class SacramentEntryView(QWidget):
     def _moveout_tab(self):
         def build(lay):
             ms = _MemberSearch(self.db); lay.addWidget(ms)
-            date_e = mk_entry(); dioc_e = mk_entry(); par_e = mk_entry()
+            date_e = mk_entry(); dioc_e = mk_entry(); par_e = mk_entry(); addr_e = mk_entry()
             _field_grid(lay, [
                 ("전출일 (YYYY/MM/DD)", date_e, 1),
                 ("새 교구",             dioc_e, 1),
                 ("새 성당",             par_e,  1),
+                ("새 성당 주소",         addr_e, 4),
             ])
             def save():
                 if not self._check_member(ms, self): return
@@ -361,9 +364,10 @@ class SacramentEntryView(QWidget):
                     date=ge(date_e) or None,
                     dest_diocese=ge(dioc_e) or None,
                     dest_parish=ge(par_e) or None,
+                    dest_address=ge(addr_e) or None,
                 ))
                 QMessageBox.information(self, "저장 완료", f"{ms.get_name()} 전출 기록이 저장되었습니다.")
-                self._ok(ms, date_e, dioc_e, par_e)
+                self._ok(ms, date_e, dioc_e, par_e, addr_e)
             self._save_btn(lay, save)
         return _tab_shell(build)
 
