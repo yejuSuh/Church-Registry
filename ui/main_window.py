@@ -15,6 +15,7 @@ from ui.detail_panel import DetailPanel
 from ui.list_view import ListView
 from ui.stats_view import StatsView
 from ui.user_mgmt_view import UserMgmtView
+from ui.sacrament_entry_view import SacramentEntryView
 
 
 class MainWindow(QMainWindow):
@@ -66,6 +67,17 @@ class MainWindow(QMainWindow):
         self.nav_users.setCursor(Qt.CursorShape.PointingHandCursor)
         sbl.addWidget(self.nav_users)
 
+        sbl.addSpacing(8)
+        rule2 = QWidget(); rule2.setFixedHeight(1)
+        rule2.setStyleSheet(f"background:rgba(255,255,255,0.08);")
+        sbl.addWidget(rule2)
+        sbl.addSpacing(8)
+
+        self.nav_sacrament = QPushButton("✚  성사 추가")
+        self.nav_sacrament.setObjectName("nav_btn")
+        self.nav_sacrament.setCursor(Qt.CursorShape.PointingHandCursor)
+        sbl.addWidget(self.nav_sacrament)
+
         sbl.addSpacing(12)
         self._count_lbl = QLabel()
         self._count_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -108,10 +120,15 @@ class MainWindow(QMainWindow):
         self.user_mgmt_view = UserMgmtView(db)
         self.stack.addWidget(self.user_mgmt_view)
 
+        # index 3 — sacrament entry (independent of selected member)
+        self.sacrament_entry_view = SacramentEntryView(db)
+        self.stack.addWidget(self.sacrament_entry_view)
+
         # ── Signals ──────────────────────────────────────────────────────────
         self.nav_list.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         self.nav_stats.clicked.connect(lambda: self.stack.setCurrentIndex(1))
         self.nav_users.clicked.connect(lambda: self._open_user_mgmt())
+        self.nav_sacrament.clicked.connect(lambda: self.stack.setCurrentIndex(3))
         self.list_view.add_btn.clicked.connect(self._add)
         self.list_view.row_selected.connect(self.detail_view.load)
         self.detail_view.edit_sig.connect(self._edit)

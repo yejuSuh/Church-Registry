@@ -56,6 +56,10 @@ class DB:
             death_cols = [r[1] for r in c.execute("PRAGMA table_info(death)").fetchall()]
             if death_cols and "viaticum" in death_cols:
                 c.execute("ALTER TABLE death DROP COLUMN viaticum")
+            for tbl in ("baptism", "confirmation", "communion"):
+                cols = [r[1] for r in c.execute(f"PRAGMA table_info({tbl})").fetchall()]
+                if cols and "person_name" not in cols:
+                    c.execute(f"ALTER TABLE {tbl} ADD COLUMN person_name TEXT")
 
             wedding_cols = [r[1] for r in c.execute("PRAGMA table_info(wedding)").fetchall()]
             if wedding_cols and "status" not in wedding_cols:

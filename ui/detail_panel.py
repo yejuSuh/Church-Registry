@@ -25,6 +25,7 @@ class DetailPanel(QWidget):
         self._l.setContentsMargins(0, 0, 0, 0)
         self._l.setSpacing(0)
         self._current_tab = 0
+        self._pno = None
         self.show_empty()
 
     def _clear(self):
@@ -34,6 +35,7 @@ class DetailPanel(QWidget):
                 it.widget().deleteLater()
 
     def show_empty(self):
+        self._pno = None
         self._clear()
         w = QWidget(); w.setObjectName("card")
         l = QVBoxLayout(w)
@@ -52,6 +54,7 @@ class DetailPanel(QWidget):
         if not p:
             self.show_empty()
             return
+        self._pno = pno
         self._clear()
 
         v = lambda k: fv(p, k) or "—"
