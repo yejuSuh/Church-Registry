@@ -13,7 +13,7 @@ _STATUS_STYLE = {
 
 
 from forms.sacrament_forms import (
-    BaptismForm, CommunionForm, WeddingForm, DeathForm,
+    BaptismForm, ConfirmationForm, CommunionForm, WeddingForm, DeathForm,
 )
 from forms.intake_forms import InfantBaptismForm, ConfirmationIntakeForm, FirstCommunionForm
 
@@ -65,8 +65,8 @@ class SacramentsTab(QWidget):
         # 세례: full infant-baptism/first-communion intake form, or a quick
         # manual entry for simple/legacy records.
         baptism_menu = QMenu(self)
-        baptism_menu.addAction("📋 유아세례 및 첫영성체 신청서", lambda: open_dialog(InfantBaptismForm))
-        baptism_menu.addAction("⚡ 빠른 입력 (간단 기록)", lambda: open_dialog(BaptismForm))
+        baptism_menu.addAction("성사 생성", lambda: open_dialog(InfantBaptismForm))
+        baptism_menu.addAction("빠른 입력", lambda: open_dialog(BaptismForm))
 
         self._section(lay, "✝  세례", self.db.get_baptism_records(self.pno),
             lambda rec: [
@@ -85,6 +85,10 @@ class SacramentsTab(QWidget):
             baptism_menu, status_info=("baptism", "id"))
 
         # 견진: one unified application form (성인/청소년 tabs inside)
+        confirmation_menu = QMenu(self)
+        confirmation_menu.addAction("성사 생성", lambda: open_dialog(ConfirmationIntakeForm))
+        confirmation_menu.addAction("빠른 입력", lambda: open_dialog(ConfirmationForm))
+
         self._section(lay, "🕊  견진", self.db.get_confirmation_records(self.pno),
             lambda rec: [
                 ("견진번호",      fv(rec, "confirmation_no")),
@@ -100,10 +104,11 @@ class SacramentsTab(QWidget):
                 ("대부/대모 세례명", fv(rec, "godparent_name_bapt")),
                 ("이름 (등록 외)", fv(rec, "person_name")),
             ],
-            lambda: open_dialog(ConfirmationIntakeForm), status_info=("confirmation", "id"))
+            confirmation_menu, status_info=("confirmation", "id"))
 
         wedding_menu = QMenu(self)
-        wedding_menu.addAction("⚡ 빠른 입력", lambda: open_dialog(WeddingForm))
+        wedding_menu.addAction("성사 생성", lambda: open_dialog(WeddingForm))
+        wedding_menu.addAction("빠른 입력", lambda: open_dialog(WeddingForm))
 
         self._section(lay, "💒  혼인", self.db.get_wedding_records(self.pno),
             lambda rec: [
@@ -123,8 +128,8 @@ class SacramentsTab(QWidget):
             wedding_menu, status_info=("wedding", "wedding_no"))
 
         communion_menu = QMenu(self)
-        communion_menu.addAction("📋 첫영성체 신청서", lambda: open_dialog(FirstCommunionForm))
-        communion_menu.addAction("⚡ 빠른 입력 (간단 기록)", lambda: open_dialog(CommunionForm))
+        communion_menu.addAction("성사 생성", lambda: open_dialog(FirstCommunionForm))
+        communion_menu.addAction("빠른 입력", lambda: open_dialog(CommunionForm))
 
         self._section(lay, "🍞  첫영성체", self.db.get_communion_records(self.pno),
             lambda rec: [
@@ -139,9 +144,6 @@ class SacramentsTab(QWidget):
             ],
             communion_menu, status_info=("communion", "communion_no"))
 
-        death_menu = QMenu(self)
-        death_menu.addAction("⚡ 빠른 입력", lambda: open_dialog(DeathForm))
-
         self._section(lay, "✟  사망", self.db.get_death_records(self.pno),
             lambda rec: [
                 ("사망일",   fv(rec, "date_death")),
@@ -150,7 +152,7 @@ class SacramentsTab(QWidget):
                 ("유족",     fv(rec, "family_name")),
                 ("주소",     fv(rec, "address")),
             ],
-            death_menu)
+            lambda: open_dialog(DeathForm))
 
         lay.addStretch()
         self._scroll.setWidget(body)
@@ -163,10 +165,10 @@ class SacramentsTab(QWidget):
         hl.addWidget(shdr(title)); hl.addStretch()
         if action is not None:
             if isinstance(action, QMenu):
-                add_btn = mk_btn("+ 추가 ▾", "btn_success")
+                add_btn = mk_btn("추가", "btn_success")
                 add_btn.setMenu(action)
             else:
-                add_btn = mk_btn("+ 추가", "btn_success")
+                add_btn = mk_btn("추가", "btn_success")
                 add_btn.clicked.connect(action)
             add_btn.setFixedHeight(26); add_btn.setFixedWidth(78)
             hl.addWidget(add_btn)

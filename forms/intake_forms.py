@@ -196,11 +196,9 @@ class ConfirmationIntakeForm(_IntakeDialog):
         self.grid.addWidget(self.sponsor, r, 0, 1, 4); r += 1
 
         self.hdr("🕊  견진 정보", r); r += 1
-        self.date_e = self.add("성사 예정일 (YYYY/MM/DD) *", mk_entry(), r, 0)
-        self.off_e = self.add("집전사제/(대)주교 *", mk_entry(), r, 1, 3); r += 1
-        self.dioc_e = self.add("교구", mk_entry(), r, 0)
-        self.church_e = self.add("성당", mk_entry(), r, 1)
-        self.cname_e = self.add("견진명", mk_entry(), r, 2); r += 1
+        self.date_e  = self.add("성사 예정일 (YYYY/MM/DD) *", mk_entry(), r, 0)
+        self.off_e   = self.add("집전사제/(대)주교 *",         mk_entry(), r, 1, 2)
+        self.cname_e = self.add("견진명",                      mk_entry(), r, 3); r += 1
 
         self.tabs = QTabWidget()
         self.tabs.addTab(self._build_adult_tab(), "성인")
@@ -380,9 +378,8 @@ class ConfirmationIntakeForm(_IntakeDialog):
 
             data = dict(
                 member_id=self.pno,
+                is_adp=1,
                 date=ge(self.date_e),
-                diocese=ge(self.dioc_e) or None,
-                parish=ge(self.church_e) or None,
                 officiant_name=ge(self.off_e),
                 confirmation_name=ge(self.cname_e) or None,
             )
@@ -412,11 +409,10 @@ class InfantBaptismForm(_IntakeDialog):
         self.grid.addWidget(member_summary(self.member), r, 0, 1, 4); r += 1
 
         self.hdr("✝  세례 정보", r); r += 1
-        self.date_e = self.add("세례일 (예정/실시, YYYY/MM/DD)", mk_entry(), r, 0)
-        self.dioc_e = self.add("교구", mk_entry(), r, 1)
-        self.church_e = self.add("성당", mk_entry(), r, 2); r += 1
-        self.off_e = self.add("집전자/부제", mk_entry(), r, 0)
-        self.off_bn_e = self.add("집전자 세례명", mk_entry(), r, 1); r += 1
+        self.date_e   = self.add("세례일 (예정/실시, YYYY/MM/DD)", mk_entry(), r, 0, 2)
+        self.off_e    = self.add("집전자/부제",   mk_entry(), r, 2)
+        self.off_bn_e = self.add("집전자 세례명", mk_entry(), r, 3); r += 1
+        self.bname_e  = self.add("세례명", mk_entry(fv(self.member, "baptismal_name")), r, 0); r += 1
 
         self.father = ParentBlock(db, "👨  아버지")
         self.grid.addWidget(self.father, r, 0, 1, 4); r += 1
@@ -444,11 +440,13 @@ class InfantBaptismForm(_IntakeDialog):
 
     def _save(self):
         try:
+            bname = ge(self.bname_e) or None
+            if bname:
+                self.db.update(self.pno, {"baptismal_name": bname})
             data = dict(
                 member_id=self.pno,
+                is_adp=1,
                 date=ge(self.date_e) or None,
-                diocese=ge(self.dioc_e) or None,
-                parish=ge(self.church_e) or None,
                 officiant_name=ge(self.off_e) or None,
                 officiant_name_bapt=ge(self.off_bn_e) or None,
             )
@@ -458,9 +456,8 @@ class InfantBaptismForm(_IntakeDialog):
             if self.comm_cb.isChecked():
                 self.db.create_communion_record(dict(
                     member_id=self.pno,
+                    is_adp=1,
                     date=ge(self.comm_date_e) or None,
-                    diocese=ge(self.dioc_e) or None,
-                    parish=ge(self.church_e) or None,
                 ))
 
             self._link_parents(self.father, self.mother)
@@ -497,11 +494,9 @@ class FirstCommunionForm(_IntakeDialog):
 
         # ── 첫영성체 정보 ─────────────────────────────────────────────────────
         self.hdr("🍞  첫영성체 정보", r); r += 1
-        self.date_e   = self.add("성사 예정일 (YYYY/MM/DD)", mk_entry(), r, 0)
-        self.dioc_e   = self.add("교구",                    mk_entry(), r, 1)
-        self.church_e = self.add("성당",                    mk_entry(), r, 2); r += 1
-        self.off_e    = self.add("집전자",                  mk_entry(), r, 0)
-        self.off_bn_e = self.add("집전자 세례명",            mk_entry(), r, 1); r += 1
+        self.date_e   = self.add("성사 예정일 (YYYY/MM/DD)", mk_entry(), r, 0, 2)
+        self.off_e    = self.add("집전자",                   mk_entry(), r, 2)
+        self.off_bn_e = self.add("집전자 세례명",             mk_entry(), r, 3); r += 1
 
         self.grid.setRowStretch(r, 1)
 
@@ -551,9 +546,8 @@ class FirstCommunionForm(_IntakeDialog):
             self.prior_baptism.maybe_create(self.db, self.pno)
             self.db.create_communion_record(dict(
                 member_id=self.pno,
+                is_adp=1,
                 date=ge(self.date_e) or None,
-                diocese=ge(self.dioc_e) or None,
-                parish=ge(self.church_e) or None,
                 officiant_name=ge(self.off_e) or None,
                 officiant_name_bapt=ge(self.off_bn_e) or None,
             ))

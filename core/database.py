@@ -55,7 +55,10 @@ class DB:
                 c.execute("ALTER TABLE confirmation ADD COLUMN confirmation_name TEXT")
             death_cols = [r[1] for r in c.execute("PRAGMA table_info(death)").fetchall()]
             if death_cols and "viaticum" in death_cols:
-                c.execute("ALTER TABLE death DROP COLUMN viaticum")
+                try:
+                    c.execute("ALTER TABLE death DROP COLUMN viaticum")
+                except Exception:
+                    pass  # SQLite < 3.35 does not support DROP COLUMN
             for tbl in ("baptism", "confirmation", "communion"):
                 cols = [r[1] for r in c.execute(f"PRAGMA table_info({tbl})").fetchall()]
                 if cols and "person_name" not in cols:
@@ -146,7 +149,8 @@ class DB:
                     "            godparent_name_en   TEXT,\n"
                     "            godparent_name_bapt TEXT,\n"
                     "            status              TEXT,\n"
-                    "            created_at          TEXT",
+                    "            created_at          TEXT,\n"
+                    "            person_name         TEXT",
                     ["CREATE INDEX IF NOT EXISTS idx_baptism_member ON baptism(member_id)"],
                     "AFTER INSERT ON baptism WHEN NEW.created_at IS NULL\n"
                     "        BEGIN UPDATE baptism SET created_at = strftime('%m/%d/%Y','now') WHERE rowid = NEW.rowid; END",
@@ -168,10 +172,30 @@ class DB:
                     "            godparent_name_en   TEXT,\n"
                     "            godparent_name_bapt TEXT,\n"
                     "            status              TEXT,\n"
-                    "            created_at          TEXT",
+                    "            created_at          TEXT,\n"
+                    "            confirmation_name   TEXT,\n"
+                    "            person_name         TEXT",
                     ["CREATE INDEX IF NOT EXISTS idx_confirm_member ON confirmation(member_id)"],
                     "AFTER INSERT ON confirmation WHEN NEW.created_at IS NULL\n"
                     "        BEGIN UPDATE confirmation SET created_at = strftime('%m/%d/%Y','now') WHERE rowid = NEW.rowid; END",
+                ),
+                (
+                    "communion", "communion_no",
+                    "member_id,is_adp,date,diocese,parish,officiant_name,"
+                    "officiant_name_bapt,status,created_at",
+                    "member_id           INTEGER REFERENCES member(member_id) ON DELETE SET NULL,\n"
+                    "            is_adp              INTEGER DEFAULT 0 CHECK(is_adp IN (0,1)),\n"
+                    "            date                TEXT,\n"
+                    "            diocese             TEXT,\n"
+                    "            parish              TEXT,\n"
+                    "            officiant_name      TEXT,\n"
+                    "            officiant_name_bapt TEXT,\n"
+                    "            status              TEXT,\n"
+                    "            created_at          TEXT,\n"
+                    "            person_name         TEXT",
+                    ["CREATE INDEX IF NOT EXISTS idx_communion_member ON communion(member_id)"],
+                    "AFTER INSERT ON communion WHEN NEW.created_at IS NULL\n"
+                    "        BEGIN UPDATE communion SET created_at = strftime('%m/%d/%Y','now') WHERE rowid = NEW.rowid; END",
                 ),
                 (
                     "death", "death_id",
@@ -180,7 +204,9 @@ class DB:
                     "            date_death      TEXT,\n"
                     "            cemetery        TEXT,\n"
                     "            last_rites_date TEXT,\n"
-                    "            created_at      TEXT",
+                    "            created_at      TEXT,\n"
+                    "            family_name     TEXT,\n"
+                    "            address         TEXT",
                     ["CREATE INDEX IF NOT EXISTS idx_death_member ON death(member_id)"],
                     "AFTER INSERT ON death WHEN NEW.created_at IS NULL\n"
                     "        BEGIN UPDATE death SET created_at = strftime('%m/%d/%Y','now') WHERE rowid = NEW.rowid; END",
@@ -188,11 +214,12 @@ class DB:
                 (
                     "movein", "movein_id",
                     "member_id,date,former_diocese,former_parish,created_at",
-                    "member_id      INTEGER NOT NULL REFERENCES member(member_id) ON DELETE CASCADE,\n"
-                    "            date           TEXT,\n"
-                    "            former_diocese TEXT,\n"
-                    "            former_parish  TEXT,\n"
-                    "            created_at     TEXT",
+                    "member_id        INTEGER NOT NULL REFERENCES member(member_id) ON DELETE CASCADE,\n"
+                    "            date             TEXT,\n"
+                    "            former_diocese   TEXT,\n"
+                    "            former_parish    TEXT,\n"
+                    "            created_at       TEXT,\n"
+                    "            former_address   TEXT",
                     ["CREATE INDEX IF NOT EXISTS idx_movein_member ON movein(member_id)"],
                     "AFTER INSERT ON movein WHEN NEW.created_at IS NULL\n"
                     "        BEGIN UPDATE movein SET created_at = strftime('%m/%d/%Y','now') WHERE rowid = NEW.rowid; END",
@@ -200,11 +227,12 @@ class DB:
                 (
                     "moveout", "moveout_id",
                     "member_id,date,dest_diocese,dest_parish,created_at",
-                    "member_id    INTEGER NOT NULL REFERENCES member(member_id) ON DELETE CASCADE,\n"
-                    "            date         TEXT,\n"
-                    "            dest_diocese TEXT,\n"
-                    "            dest_parish  TEXT,\n"
-                    "            created_at   TEXT",
+                    "member_id      INTEGER NOT NULL REFERENCES member(member_id) ON DELETE CASCADE,\n"
+                    "            date           TEXT,\n"
+                    "            dest_diocese   TEXT,\n"
+                    "            dest_parish    TEXT,\n"
+                    "            created_at     TEXT,\n"
+                    "            dest_address   TEXT",
                     ["CREATE INDEX IF NOT EXISTS idx_moveout_member ON moveout(member_id)"],
                     "AFTER INSERT ON moveout WHEN NEW.created_at IS NULL\n"
                     "        BEGIN UPDATE moveout SET created_at = strftime('%m/%d/%Y','now') WHERE rowid = NEW.rowid; END",
@@ -231,6 +259,23 @@ class DB:
                     c.execute(
                         f"CREATE TRIGGER IF NOT EXISTS {trigger_name} {trigger_body}"
                     )
+            c.commit()
+
+        # Idempotent column additions for columns that may be missing on databases
+        # that were already rebuilt before these columns were introduced.
+        with self._conn() as c:
+            for tbl, col in [
+                ("death",        "family_name"),
+                ("death",        "address"),
+                ("movein",       "former_address"),
+                ("moveout",      "dest_address"),
+                ("baptism",      "person_name"),
+                ("confirmation", "person_name"),
+                ("communion",    "person_name"),
+            ]:
+                cols = [r[1] for r in c.execute(f"PRAGMA table_info({tbl})").fetchall()]
+                if cols and col not in cols:
+                    c.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} TEXT")
             c.commit()
 
     def _conn(self):
