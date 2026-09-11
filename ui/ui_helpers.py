@@ -1,9 +1,9 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QPushButton,
     QLineEdit, QComboBox, QCheckBox, QTextEdit,
-    QStyle, QStyleOptionButton,
+    QDateEdit, QStyle, QStyleOptionButton,
 )
-from PyQt6.QtCore import Qt, QRectF
+from PyQt6.QtCore import Qt, QDate, QRectF
 from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 
 from core.constants import C
@@ -106,6 +106,24 @@ def mk_entry(val=""):
     e.setText(str(val).strip() if val else "")
     return e
 
+_DATE_FMT   = "MM/dd/yyyy"
+_DATE_EMPTY = QDate(1900, 1, 1)   # sentinel = "no date entered"
+
+def mk_date(val=""):
+    """Date picker (QDateEdit with calendar popup). Pass an existing MM/DD/YYYY
+    string to pre-fill; leave blank to start in the empty/no-date state."""
+    w = QDateEdit()
+    w.setCalendarPopup(True)
+    w.setDisplayFormat(_DATE_FMT)
+    w.setMinimumDate(_DATE_EMPTY)
+    w.setSpecialValueText(" ")      # shows a space when date == minimumDate
+    if val:
+        d = QDate.fromString(str(val).strip(), _DATE_FMT)
+        w.setDate(d if d.isValid() else _DATE_EMPTY)
+    else:
+        w.setDate(_DATE_EMPTY)
+    return w
+
 class _NoScrollComboBox(QComboBox):
     """A QComboBox that only responds to the mouse wheel while it has focus.
     Plain QComboBox changes its selected value on any wheel scroll under the
@@ -149,6 +167,8 @@ def mk_check(label, val=""):
     return cb
 
 def ge(w):
+    if isinstance(w, QDateEdit):
+        return w.text().strip()   # "" when at sentinel (special value text = " ")
     if isinstance(w, QLineEdit):
         return w.text().strip()
     if isinstance(w, QComboBox):

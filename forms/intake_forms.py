@@ -2,10 +2,10 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QWidget,
     QGridLayout, QScrollArea, QFrame, QLabel, QMessageBox, QTabWidget,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QDate
 
 from core.constants import C
-from ui.ui_helpers import fv, mk_btn, mk_entry, mk_combo, mk_check, vbox_field, shdr, ge
+from ui.ui_helpers import fv, mk_btn, mk_entry, mk_date, mk_combo, mk_check, vbox_field, shdr, ge
 from forms.person_picker import PersonPicker, WeddingMatchDialog
 
 
@@ -46,14 +46,14 @@ class ParentBlock(QWidget):
 
         row = QWidget()
         rl = QHBoxLayout(row); rl.setContentsMargins(0, 0, 0, 0); rl.setSpacing(10)
-        self.bdate_e = mk_entry(); rl.addWidget(vbox_field("세례일", self.bdate_e, C['card']), 1)
+        self.bdate_e = mk_date(); rl.addWidget(vbox_field("세례일", self.bdate_e, C['card']), 1)
         self.dioc_e = mk_entry(); rl.addWidget(vbox_field("세례 교구", self.dioc_e, C['card']), 1)
         self.par_e = mk_entry(); rl.addWidget(vbox_field("세례 성당", self.par_e, C['card']), 1)
         lay.addWidget(row)
 
     def data(self, prefix):
         d = self.picker.data(prefix)
-        d[f"{prefix}_baptism_date"] = self.bdate_e.text().strip() or None
+        d[f"{prefix}_baptism_date"] = ge(self.bdate_e) or None
         d[f"{prefix}_baptism_diocese"] = self.dioc_e.text().strip() or None
         d[f"{prefix}_baptism_parish"] = self.par_e.text().strip() or None
         return d
@@ -86,13 +86,14 @@ class PriorBaptismBlock(QWidget):
         g.setHorizontalSpacing(16); g.setVerticalSpacing(6)
         for col in range(3): g.setColumnStretch(col, 1)
 
-        def _cell(label, key, row, col, span=1, star=False):
+        def _cell(label, key, row, col, span=1, star=False, kind="text"):
             lbl_txt = f"{label} *" if star and not self.has_existing else label
-            e = mk_entry(fv(rec, key) if rec else "")
+            val = fv(rec, key) if rec else ""
+            e = mk_date(val) if kind == "date" else mk_entry(val)
             g.addWidget(vbox_field(lbl_txt, e, C['card']), row, col, 1, span)
             return e
 
-        self.date_e     = _cell("세례일자",        "date",                0, 0, star=True)
+        self.date_e     = _cell("세례일자",        "date",                0, 0, star=True, kind="date")
         self.dioc_e     = _cell("세례교구",        "diocese",             0, 1)
         self.par_e      = _cell("세례본당",        "parish",              0, 2)
         self.off_e      = _cell("집전자",          "officiant_name",      1, 0)
@@ -104,7 +105,7 @@ class PriorBaptismBlock(QWidget):
 
     def _field_data(self):
         return dict(
-            date=self.date_e.text().strip() or None,
+            date=ge(self.date_e) or None,
             diocese=self.dioc_e.text().strip() or None,
             parish=self.par_e.text().strip() or None,
             officiant_name=self.off_e.text().strip() or None,
@@ -196,7 +197,7 @@ class ConfirmationIntakeForm(_IntakeDialog):
         self.grid.addWidget(self.sponsor, r, 0, 1, 4); r += 1
 
         self.hdr("🕊  견진 정보", r); r += 1
-        self.date_e  = self.add("성사 예정일 (YYYY/MM/DD) *", mk_entry(), r, 0)
+        self.date_e  = self.add("성사 예정일 *", mk_date(), r, 0)
         self.off_e   = self.add("집전사제/(대)주교 *",         mk_entry(), r, 1, 2)
         self.cname_e = self.add("견진명",                      mk_entry(), r, 3); r += 1
 
@@ -231,7 +232,7 @@ class ConfirmationIntakeForm(_IntakeDialog):
         wl = QHBoxLayout(wrow); wl.setContentsMargins(0, 0, 0, 0); wl.setSpacing(10)
         self.wtype_cb = mk_combo(["성사혼", "관면혼", "단순유효화혼", "바오로특전혼", "근본유효화혼", "기타"])
         wl.addWidget(vbox_field("혼인 형태 *", self.wtype_cb, C['card']), 1)
-        self.wdate_e = mk_entry()
+        self.wdate_e = mk_date()
         wl.addWidget(vbox_field("혼인날짜 *", self.wdate_e, C['card']), 1)
         self.woff_e = mk_entry()
         wl.addWidget(vbox_field("예식 집전자 *", self.woff_e, C['card']), 1)
@@ -284,7 +285,9 @@ class ConfirmationIntakeForm(_IntakeDialog):
         if dlg.exec() == QDialog.DialogCode.Accepted and dlg.chosen:
             r = dlg.chosen
             self._matched_wedding_no = r["wedding_no"]
-            self.wdate_e.setText(fv(r, "date"))
+            d = QDate.fromString(fv(r, "date"), "MM/dd/yyyy")
+            if d.isValid():
+                self.wdate_e.setDate(d)
             idx = self.wtype_cb.findText(fv(r, "wedding_type"), Qt.MatchFlag.MatchContains)
             if idx >= 0:
                 self.wtype_cb.setCurrentIndex(idx)
@@ -409,9 +412,9 @@ class InfantBaptismForm(_IntakeDialog):
         self.grid.addWidget(member_summary(self.member), r, 0, 1, 4); r += 1
 
         self.hdr("✝  세례 정보", r); r += 1
-        self.date_e   = self.add("세례일 (예정/실시, YYYY/MM/DD)", mk_entry(), r, 0, 2)
-        self.off_e    = self.add("집전자/부제",   mk_entry(), r, 2)
-        self.off_bn_e = self.add("집전자 세례명", mk_entry(), r, 3); r += 1
+        self.date_e   = self.add("세례일 (예정/실시)", mk_date(), r, 0, 2)
+        self.off_e    = self.add("집전자/부제",        mk_entry(), r, 2)
+        self.off_bn_e = self.add("집전자 세례명",      mk_entry(), r, 3); r += 1
         self.bname_e  = self.add("세례명", mk_entry(fv(self.member, "baptismal_name")), r, 0); r += 1
 
         self.father = ParentBlock(db, "👨  아버지")
@@ -430,7 +433,7 @@ class InfantBaptismForm(_IntakeDialog):
 
         self.comm_group = QWidget()
         cl = QHBoxLayout(self.comm_group); cl.setContentsMargins(0, 0, 0, 0); cl.setSpacing(10)
-        self.comm_date_e = mk_entry()
+        self.comm_date_e = mk_date()
         cl.addWidget(vbox_field("첫영성체일 (예정/실시)", self.comm_date_e, C['card']), 1)
         self.comm_cb.toggled.connect(self.comm_group.setVisible)
         self.comm_group.setVisible(False)
@@ -494,9 +497,9 @@ class FirstCommunionForm(_IntakeDialog):
 
         # ── 첫영성체 정보 ─────────────────────────────────────────────────────
         self.hdr("🍞  첫영성체 정보", r); r += 1
-        self.date_e   = self.add("성사 예정일 (YYYY/MM/DD)", mk_entry(), r, 0, 2)
-        self.off_e    = self.add("집전자",                   mk_entry(), r, 2)
-        self.off_bn_e = self.add("집전자 세례명",             mk_entry(), r, 3); r += 1
+        self.date_e   = self.add("성사 예정일", mk_date(), r, 0, 2)
+        self.off_e    = self.add("집전자",      mk_entry(), r, 2)
+        self.off_bn_e = self.add("집전자 세례명", mk_entry(), r, 3); r += 1
 
         self.grid.setRowStretch(r, 1)
 

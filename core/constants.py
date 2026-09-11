@@ -70,9 +70,11 @@ QPushButton#btn_danger{{background:transparent;color:{C['danger']};font-weight:b
 QPushButton#btn_danger:hover{{background:#F4EAEB;}}
 QPushButton#btn_muted{{background:transparent;color:{C['muted']};border-color:{C['border']};}}
 QPushButton#btn_muted:hover{{background:{C['header']};color:{C['text']};}}
-QLineEdit,QComboBox,QTextEdit{{background:{C['card']};border:1px solid {C['border']};
+QLineEdit,QComboBox,QTextEdit,QDateEdit{{background:{C['card']};border:1px solid {C['border']};
   border-radius:5px;padding:5px 8px;font-size:{size}px;}}
-QLineEdit:focus,QComboBox:focus,QTextEdit:focus{{border:1.5px solid {C['accent']};}}
+QLineEdit:focus,QComboBox:focus,QTextEdit:focus,QDateEdit:focus{{border:1.5px solid {C['accent']};}}
+QDateEdit::drop-down{{subcontrol-origin:padding;subcontrol-position:top right;width:26px;background:{C['header']};border-left:1px solid {C['border']};border-top-right-radius:4px;border-bottom-right-radius:4px;}}
+QDateEdit::down-arrow{{image:url({_ARROW_SVG});width:10px;height:6px;}}
 QComboBox::drop-down{{subcontrol-origin:padding;subcontrol-position:top right;width:26px;background:{C['header']};border-left:1px solid {C['border']};border-top-right-radius:4px;border-bottom-right-radius:4px;}}
 QComboBox::down-arrow{{image:url({_ARROW_SVG});width:10px;height:6px;}}
 QComboBox::drop-down:hover{{background:{C['border']};}}
