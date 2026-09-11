@@ -40,27 +40,25 @@ FONT_LEDGER = "Georgia,'Apple SD Gothic Neo',serif"
 # system, so they import this constant instead of hardcoding their own value.
 BTN_RADIUS = "3px"
 
-SS = f"""
-QWidget{{background:{C['bg']};color:{C['text']};font-family:{FONT_UI};font-size:13px;}}
+FONT_SIZE_DEFAULT = 13
+FONT_SIZE_MIN     = 10
+FONT_SIZE_MAX     = 18
+
+
+def make_stylesheet(size: int = FONT_SIZE_DEFAULT) -> str:
+    """Return the full application stylesheet scaled to the given base font size."""
+    sm = max(size - 2, 8)   # small label size (fl / mu)
+    return f"""
+QWidget{{background:{C['bg']};color:{C['text']};font-family:{FONT_UI};font-size:{size}px;}}
 #sidebar{{background:{C['sidebar']};}}
 #sidebar QLabel{{color:{C['white']};background:transparent;}}
 #sidebar QPushButton{{background:transparent;color:{C['white']};border:none;
-  text-align:left;padding:10px 16px;font-size:13px;border-radius:{BTN_RADIUS};}}
+  text-align:left;padding:10px 16px;font-size:{size}px;border-radius:{BTN_RADIUS};}}
 #sidebar QPushButton:hover{{background:{C['accent']};}}
 #card,QDialog{{background:{C['card']};}}
 #toolbar{{background:{C['card']};border-bottom:1px solid {C['border']};}}
 #filterbar{{background:{C['header']};border-bottom:1px solid {C['border']};}}
-/* Flat, text-forward buttons: only the single primary action per screen
-   (btn_accent) gets a solid fill. Everything else -- repeated "+ 추가"
-   actions, cancel, delete -- is a quiet outline/ghost button that leans on
-   color and weight for hierarchy instead of a heavy color block, so a
-   record-dense screen with five "+ 추가" buttons doesn't read as five
-   equally-loud CTAs. */
-/* Every button gets a 1px border -- transparent on the solid-fill accent
-   button, colored on the outline ones -- so Qt's box model (border sits
-   outside the padding, unlike CSS border-box) doesn't make the outlined
-   buttons 2px taller/wider than accent when they sit in the same row. */
-QPushButton{{border-radius:{BTN_RADIUS};padding:6px 14px;font-size:13px;
+QPushButton{{border-radius:{BTN_RADIUS};padding:6px 14px;font-size:{size}px;
   border:1px solid transparent;cursor:pointer;}}
 QPushButton#btn_accent{{background:{C['accent']};color:white;font-weight:bold;}}
 QPushButton#btn_accent:hover{{background:{C['accent_dk']};}}
@@ -73,7 +71,7 @@ QPushButton#btn_danger:hover{{background:#F4EAEB;}}
 QPushButton#btn_muted{{background:transparent;color:{C['muted']};border-color:{C['border']};}}
 QPushButton#btn_muted:hover{{background:{C['header']};color:{C['text']};}}
 QLineEdit,QComboBox,QTextEdit{{background:{C['card']};border:1px solid {C['border']};
-  border-radius:5px;padding:5px 8px;font-size:13px;}}
+  border-radius:5px;padding:5px 8px;font-size:{size}px;}}
 QLineEdit:focus,QComboBox:focus,QTextEdit:focus{{border:1.5px solid {C['accent']};}}
 QComboBox::drop-down{{subcontrol-origin:padding;subcontrol-position:top right;width:26px;background:{C['header']};border-left:1px solid {C['border']};border-top-right-radius:4px;border-bottom-right-radius:4px;}}
 QComboBox::down-arrow{{image:url({_ARROW_SVG});width:10px;height:6px;}}
@@ -83,7 +81,7 @@ QComboBox QAbstractItemView{{background:{C['card']};color:{C['text']};
   selection-background-color:{C['accent']};selection-color:white;}}
 QComboBox QAbstractItemView::item{{padding:5px 8px;border-radius:3px;min-height:20px;}}
 QComboBox QAbstractItemView::item:hover{{background:{C['header']};}}
-QTableWidget{{background:{C['card']};gridline-color:{C['border']};border:none;font-size:13px;outline:0;}}
+QTableWidget{{background:{C['card']};gridline-color:{C['border']};border:none;font-size:{size}px;outline:0;}}
 QTableWidget::item{{padding:4px 8px;border:none;}}
 QTableWidget::item:selected{{background:{C['accent']};color:white;}}
 QHeaderView::section{{background:{C['header']};color:{C['sidebar']};font-weight:bold;
@@ -93,9 +91,6 @@ QHeaderView::section{{background:{C['header']};color:{C['sidebar']};font-weight:
 #stat_card{{background:{C['card']};border:1px solid {C['border']};border-radius:10px;}}
 #detail_hdr{{background:{C['accent']};}}
 #detail_hdr QLabel{{color:white;background:transparent;}}
-/* No chip/box -- just the seal-face typography (see ui_helpers.mk_regno)
-   set directly against the header, inheriting the white text color from
-   the #detail_hdr QLabel rule above. */
 QLabel#regno{{background:transparent;border:none;padding:0;}}
 #detail_btnbar{{background:{C['header']};border-bottom:1px solid {C['border']};}}
 QScrollBar:vertical{{background:{C['bg']};width:8px;border-radius:4px;}}
@@ -103,17 +98,20 @@ QScrollBar::handle:vertical{{background:{C['border']};border-radius:4px;min-heig
 QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}
 QScrollBar:horizontal{{height:0;}}
 QCheckBox{{background:transparent;spacing:6px;margin-left:4px;}}
-QLabel#fl{{color:{C['muted']};font-size:11px;background:transparent;}}
-QLabel#fv{{color:{C['text']};font-size:13px;background:transparent;}}
-QLabel#mu{{color:{C['muted']};font-size:11px;background:transparent;}}
+QLabel#fl{{color:{C['muted']};font-size:{sm}px;background:transparent;}}
+QLabel#fv{{color:{C['text']};font-size:{size}px;background:transparent;}}
+QLabel#mu{{color:{C['muted']};font-size:{sm}px;background:transparent;}}
 QTabWidget::pane{{border:none;background:{C['card']};}}
 QTabBar{{background:{C['header']};}}
 QTabBar::tab{{background:{C['header']};color:{C['muted']};padding:7px 18px;
-  border:none;border-bottom:2px solid transparent;font-size:13px;margin-right:2px;}}
+  border:none;border-bottom:2px solid transparent;font-size:{size}px;margin-right:2px;}}
 QTabBar::tab:selected{{color:{C['accent']};background:{C['card']};
   border-bottom:2px solid {C['accent']};font-weight:bold;}}
 QTabBar::tab:hover:!selected{{background:{C['border']};}}
 """
+
+
+SS = make_stylesheet()
 
 _AREA_FILE = os.path.join(_DIR, "area_code.txt")
 

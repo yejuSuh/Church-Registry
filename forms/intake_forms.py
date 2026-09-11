@@ -66,47 +66,64 @@ class ParentBlock(QWidget):
 
 
 class PriorBaptismBlock(QWidget):
-    """Date/diocese/parish of a baptism that already happened (elsewhere or
-    previously), entered on the confirmation/RCIA forms so it can be recorded
-    into `baptism` if the applicant has no baptism record on file yet.
-    Requires a manually-entered baptism_no (this app doesn't auto-number
-    sacrament records -- see sacrament_counter in DB_SCHEMA_GUIDE.md) so it's
-    skipped entirely if left blank."""
+    """Editable baptism block — pre-fills from the first existing record when present.
 
-    def __init__(self, has_existing):
+    Either path (existing or new) shows the same fully-editable grid. On save:
+    - existing record → update changed fields in DB
+    - no record → create a new baptism row (skipped if date is blank)
+    """
+
+    def __init__(self, records):
         super().__init__()
-        self.has_existing = has_existing
+        self.has_existing = bool(records)
+        self._rec_id = records[0]["id"] if records else None
+        rec = records[0] if records else None
+
         lay = QVBoxLayout(self); lay.setContentsMargins(0, 0, 0, 0); lay.setSpacing(6)
         lay.addWidget(shdr("✝  세례성사"))
-        if has_existing:
-            note = QLabel("이미 세례 기록이 있어 새로 만들지 않습니다 (세례 기록 탭 참고).")
-            note.setObjectName("mu")
-            lay.addWidget(note)
 
-        # required unless an existing baptism record makes this block moot
-        star = "" if has_existing else " *"
-        row = QWidget()
-        rl = QHBoxLayout(row); rl.setContentsMargins(0, 0, 0, 0); rl.setSpacing(10)
-        self.date_e = mk_entry(); rl.addWidget(vbox_field(f"세례일자{star}", self.date_e, C['card']), 1)
-        self.dioc_e = mk_entry(); rl.addWidget(vbox_field(f"세례교구{star}", self.dioc_e, C['card']), 1)
-        self.par_e = mk_entry(); rl.addWidget(vbox_field(f"세례본당{star}", self.par_e, C['card']), 1)
-        lay.addWidget(row)
+        g = QGridLayout(); g.setContentsMargins(0, 0, 0, 0)
+        g.setHorizontalSpacing(16); g.setVerticalSpacing(6)
+        for col in range(3): g.setColumnStretch(col, 1)
 
-        if has_existing:
-            for w in (self.date_e, self.dioc_e, self.par_e):
-                w.setEnabled(False)
+        def _cell(label, key, row, col, span=1, star=False):
+            lbl_txt = f"{label} *" if star and not self.has_existing else label
+            e = mk_entry(fv(rec, key) if rec else "")
+            g.addWidget(vbox_field(lbl_txt, e, C['card']), row, col, 1, span)
+            return e
 
-    def maybe_create(self, db, member_id):
-        if self.has_existing:
-            return
-        if not self.date_e.text().strip():
-            return
-        db.create_baptism(dict(
-            member_id=member_id,
+        self.date_e     = _cell("세례일자",        "date",                0, 0, star=True)
+        self.dioc_e     = _cell("세례교구",        "diocese",             0, 1)
+        self.par_e      = _cell("세례본당",        "parish",              0, 2)
+        self.off_e      = _cell("집전자",          "officiant_name",      1, 0)
+        self.off_bn_e   = _cell("집전자 세례명",   "officiant_name_bapt", 1, 1)
+        self.gp_ko_e    = _cell("대부/대모",       "godparent_name_ko",   2, 0)
+        self.gp_bn_e    = _cell("대부/대모 세례명", "godparent_name_bapt", 2, 1)
+        self.gp_en_e    = _cell("대부/대모 영문명", "godparent_name_en",   2, 2)
+        lay.addLayout(g)
+
+    def _field_data(self):
+        return dict(
             date=self.date_e.text().strip() or None,
             diocese=self.dioc_e.text().strip() or None,
             parish=self.par_e.text().strip() or None,
-        ))
+            officiant_name=self.off_e.text().strip() or None,
+            officiant_name_bapt=self.off_bn_e.text().strip() or None,
+            godparent_name_ko=self.gp_ko_e.text().strip() or None,
+            godparent_name_bapt=self.gp_bn_e.text().strip() or None,
+            godparent_name_en=self.gp_en_e.text().strip() or None,
+        )
+
+    def maybe_create(self, db, member_id):
+        data = self._field_data()
+        if self.has_existing:
+            db.update_sacrament_record("baptism", "id", self._rec_id,
+                                       {k: v for k, v in data.items()})
+        else:
+            if not data["date"]:
+                return
+            data["member_id"] = member_id
+            db.create_baptism(data)
 
 
 # ── Dialog scaffolding ───────────────────────────────────────────────────────
@@ -171,7 +188,7 @@ class ConfirmationIntakeForm(_IntakeDialog):
         r = 0
         self.grid.addWidget(member_summary(self.member), r, 0, 1, 4); r += 1
 
-        self.prior_baptism = PriorBaptismBlock(has_existing=bool(db.get_baptism_records(pno)))
+        self.prior_baptism = PriorBaptismBlock(records=db.get_baptism_records(pno))
         self.grid.addWidget(self.prior_baptism, r, 0, 1, 4); r += 1
 
         self.sponsor = PersonPicker(db, "🕊  대부모", show_english=True, show_phone=False,
@@ -448,6 +465,99 @@ class InfantBaptismForm(_IntakeDialog):
 
             self._link_parents(self.father, self.mother)
 
+            if self.on_save:
+                self.on_save()
+            self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "저장 오류", str(e))
+
+
+# ── Form 4: 첫영성체 신청서 — First Communion ────────────────────────────────
+
+class FirstCommunionForm(_IntakeDialog):
+    """첫영성체 신청서: shows member info (incl. address/birth date), prior baptism,
+    parent blocks, and communion-specific fields (date, officiant)."""
+
+    def __init__(self, parent, db, pno, name, on_save=None):
+        super().__init__(parent, db, pno, name, "첫영성체 신청서", (720, 800), on_save)
+        r = 0
+
+        # ── 신청자 (member detail incl. birth date & address) ─────────────────
+        self.grid.addWidget(self._member_detail_block(), r, 0, 1, 4); r += 1
+
+        # ── 세례 정보 ─────────────────────────────────────────────────────────
+        self.prior_baptism = PriorBaptismBlock(records=db.get_baptism_records(pno))
+        self.grid.addWidget(self.prior_baptism, r, 0, 1, 4); r += 1
+
+        # ── 부모 정보 ─────────────────────────────────────────────────────────
+        self.father = ParentBlock(db, "👨  아버지")
+        self.grid.addWidget(self.father, r, 0, 1, 4); r += 1
+        self.mother = ParentBlock(db, "👩  어머니")
+        self.grid.addWidget(self.mother, r, 0, 1, 4); r += 1
+
+        # ── 첫영성체 정보 ─────────────────────────────────────────────────────
+        self.hdr("🍞  첫영성체 정보", r); r += 1
+        self.date_e   = self.add("성사 예정일 (YYYY/MM/DD)", mk_entry(), r, 0)
+        self.dioc_e   = self.add("교구",                    mk_entry(), r, 1)
+        self.church_e = self.add("성당",                    mk_entry(), r, 2); r += 1
+        self.off_e    = self.add("집전자",                  mk_entry(), r, 0)
+        self.off_bn_e = self.add("집전자 세례명",            mk_entry(), r, 1); r += 1
+
+        self.grid.setRowStretch(r, 1)
+
+    def _member_detail_block(self):
+        """Member info block — pre-filled and editable; changes are saved back to the member record."""
+        w = QWidget()
+        lay = QVBoxLayout(w); lay.setContentsMargins(0, 0, 0, 0); lay.setSpacing(6)
+        lay.addWidget(shdr("👤  신청자"))
+
+        g = QGridLayout(); g.setContentsMargins(0, 0, 0, 0)
+        g.setHorizontalSpacing(16); g.setVerticalSpacing(6)
+        for col in range(4): g.setColumnStretch(col, 1)
+
+        m = self.member
+
+        def _cell(label, key, row, col, span=1):
+            e = mk_entry(fv(m, key))
+            g.addWidget(vbox_field(label, e, C['card']), row, col, 1, span)
+            return e
+
+        self._m_name_e  = _cell("이름",     "name",           0, 0)
+        self._m_bname_e = _cell("세례명",   "baptismal_name", 0, 1)
+        self._m_birth_e = _cell("생년월일", "birth_date",     0, 2)
+        # 교적번호 is immutable — keep it read-only
+        reg_e = mk_entry(fv(m, "display_id")); reg_e.setReadOnly(True)
+        reg_e.setStyleSheet(f"background:{C['header']};color:{C['text']};")
+        g.addWidget(vbox_field("교적번호", reg_e, C['card']), 0, 3)
+        self._m_addr_e  = _cell("주소",     "address",        1, 0, 4)
+        lay.addLayout(g)
+        return w
+
+    def _save(self):
+        if not ge(self.date_e):
+            QMessageBox.warning(self, "오류", "성사 예정일을 입력하세요.")
+            return
+        if not self.prior_baptism.has_existing and not self.prior_baptism.date_e.text().strip():
+            QMessageBox.warning(self, "오류", "세례일자를 입력하세요.")
+            return
+        try:
+            # Write back any member info edits
+            self.db.update(self.pno, dict(
+                name=ge(self._m_name_e),
+                baptismal_name=ge(self._m_bname_e) or None,
+                birth_date=ge(self._m_birth_e) or None,
+                address=ge(self._m_addr_e) or None,
+            ))
+            self.prior_baptism.maybe_create(self.db, self.pno)
+            self.db.create_communion_record(dict(
+                member_id=self.pno,
+                date=ge(self.date_e) or None,
+                diocese=ge(self.dioc_e) or None,
+                parish=ge(self.church_e) or None,
+                officiant_name=ge(self.off_e) or None,
+                officiant_name_bapt=ge(self.off_bn_e) or None,
+            ))
+            self._link_parents(self.father, self.mother)
             if self.on_save:
                 self.on_save()
             self.accept()

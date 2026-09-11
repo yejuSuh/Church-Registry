@@ -91,6 +91,49 @@ class ConfirmationForm(QDialog):
             QMessageBox.critical(self, "저장 오류", str(e))
 
 
+class CommunionForm(QDialog):
+    """Quick-entry dialog for a first-communion record."""
+
+    def __init__(self, parent, db, pno, name, on_save=None):
+        super().__init__(parent)
+        self.db = db; self.pno = pno; self.on_save = on_save
+        self.setWindowTitle("첫영성체 기록 추가"); self.resize(460, 160); self.setModal(True)
+        outer = QVBoxLayout(self); outer.setContentsMargins(0, 0, 0, 0); outer.setSpacing(0)
+        body = QWidget(); body.setObjectName("card")
+        g = QGridLayout(body); g.setContentsMargins(16, 12, 16, 12)
+        g.setHorizontalSpacing(16); g.setVerticalSpacing(6)
+        for col in range(3): g.setColumnStretch(col, 1)
+        outer.addWidget(body, 1)
+
+        def add(lbl, w, r, c, span=1):
+            g.addWidget(vbox_field(lbl, w, C['card']), r, c, 1, span); return w
+
+        self.date_e   = add("첫영성체일 (YYYY/MM/DD)", mk_entry(), 0, 0)
+        self.church_e = add("성당",                    mk_entry(), 0, 1, 2)
+        self.dioc_e   = add("교구",                    mk_entry(), 1, 0)
+        self.off_e    = add("집전자",                  mk_entry(), 1, 1)
+
+        bb = QWidget(); bb.setObjectName("card"); bb.setFixedHeight(54)
+        bbl = QHBoxLayout(bb); bbl.setContentsMargins(12, 8, 12, 8); bbl.addStretch()
+        cb = mk_btn("취소", "btn_muted"); sb = mk_btn("💾  저장", "btn_accent")
+        cb.clicked.connect(self.reject); sb.clicked.connect(self._save)
+        bbl.addWidget(cb); bbl.addWidget(sb); outer.addWidget(bb)
+
+    def _save(self):
+        try:
+            self.db.create_communion_record(dict(
+                member_id=self.pno,
+                date=ge(self.date_e) or None,
+                diocese=ge(self.dioc_e) or None,
+                parish=ge(self.church_e) or None,
+                officiant_name=ge(self.off_e) or None,
+            ))
+            if self.on_save: self.on_save()
+            self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "저장 오류", str(e))
+
+
 class WeddingForm(QDialog):
     """Quick-entry dialog for a wedding record; supports '기타' type with free-text entry."""
 
@@ -158,25 +201,49 @@ class WeddingForm(QDialog):
 
 
 class DeathForm(QDialog):
-    """Quick-entry dialog for a death record; also sets member_status to 'deceased'."""
+    """Death record intake: shows member info (read-only), then collects death date,
+    cemetery address, last-rites date, a family contact name, and current address."""
 
     def __init__(self, parent, db, pno, name, on_save=None):
         super().__init__(parent)
         self.db = db; self.pno = pno; self.on_save = on_save
-        self.setWindowTitle("사망 기록 추가"); self.resize(540, 190); self.setModal(True)
+        self.setWindowTitle("사망 기록 추가"); self.resize(600, 360); self.setModal(True)
+
+        from PyQt6.QtWidgets import QScrollArea, QFrame
         outer = QVBoxLayout(self); outer.setContentsMargins(0, 0, 0, 0); outer.setSpacing(0)
+        scroll = QScrollArea(); scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         body = QWidget(); body.setObjectName("card")
+        scroll.setWidget(body)
+        outer.addWidget(scroll, 1)
+
+        from ui.ui_helpers import shdr
         g = QGridLayout(body); g.setContentsMargins(16, 12, 16, 12)
         g.setHorizontalSpacing(16); g.setVerticalSpacing(6)
         for col in range(4): g.setColumnStretch(col, 1)
-        outer.addWidget(body, 1)
 
         def add(lbl, w, r, c, span=1):
             g.addWidget(vbox_field(lbl, w, C['card']), r, c, 1, span); return w
 
-        self.date_e  = add("사망일 (YYYY/MM/DD)",    mk_entry(), 0, 0)
-        self.place_e = add("장소 (묘지)",             mk_entry(), 0, 1, 3)
-        self.sick_e  = add("병자성사일 (YYYY/MM/DD)", mk_entry(), 1, 0, 2)
+        member = db.get(pno)
+        fv_ = lambda k: str(member[k]).strip() if member and member[k] else ""
+
+        # ── 고인 정보 (pre-filled from member record; editable) ───────────────
+        r = 0
+        g.addWidget(shdr("✟  고인 정보"), r, 0, 1, 4); r += 1
+        self.name_e    = add("이름",    mk_entry(fv_("name")),            r, 0)
+        self.bname_e   = add("세례명",  mk_entry(fv_("baptismal_name")),  r, 1)
+        self.birth_e   = add("생년월일", mk_entry(fv_("birth_date")),     r, 2); r += 1
+        self.cur_addr_e = add("현 주소", mk_entry(fv_("address")),        r, 0, 4); r += 1
+
+        # ── 사망 정보 ────────────────────────────────────────────────────────
+        g.addWidget(shdr("📋  사망 정보"), r, 0, 1, 4); r += 1
+        self.date_e   = add("사망일 (YYYY/MM/DD)",    mk_entry(), r, 0)
+        self.family_e = add("유족 (연락 가족)",         mk_entry(), r, 1, 2); r += 1
+        self.cemetery_e = add("묘지 주소",             mk_entry(), r, 0, 4); r += 1
+        self.rites_e  = add("병자성사일 (YYYY/MM/DD)", mk_entry(), r, 0, 2); r += 1
+
+        g.setRowStretch(r, 1)
 
         bb = QWidget(); bb.setObjectName("card"); bb.setFixedHeight(54)
         bbl = QHBoxLayout(bb); bbl.setContentsMargins(12, 8, 12, 8); bbl.addStretch()
@@ -185,11 +252,23 @@ class DeathForm(QDialog):
         bbl.addWidget(cb); bbl.addWidget(sb); outer.addWidget(bb)
 
     def _save(self):
+        if not ge(self.date_e):
+            QMessageBox.warning(self, "오류", "사망일을 입력하세요.")
+            return
         try:
+            # Write back any edits to the member record
+            self.db.update(self.pno, dict(
+                name=ge(self.name_e),
+                baptismal_name=ge(self.bname_e) or None,
+                birth_date=ge(self.birth_e) or None,
+                address=ge(self.cur_addr_e) or None,
+            ))
             self.db.create_death_record(dict(
-                member_id=self.pno, date_death=ge(self.date_e),
-                cemetery=ge(self.place_e),
-                last_rites_date=ge(self.sick_e),
+                member_id=self.pno,
+                date_death=ge(self.date_e) or None,
+                cemetery=ge(self.cemetery_e) or None,
+                last_rites_date=ge(self.rites_e) or None,
+                family_name=ge(self.family_e) or None,
             ))
             if self.on_save: self.on_save()
             self.accept()

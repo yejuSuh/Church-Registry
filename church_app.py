@@ -1,13 +1,16 @@
 import sys, os
 from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtCore import QSettings
 
-from core.constants import DB_PATH, SS
+from core.constants import DB_PATH, FONT_SIZE_DEFAULT, make_stylesheet
 from core.database import DB
 from ui.views import LoginDialog, MainWindow
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setStyleSheet(SS)
+    saved_size = int(QSettings("BostonKoreanCatholic", "ChurchRegistry").value(
+        "ui/font_size", FONT_SIZE_DEFAULT))
+    app.setStyleSheet(make_stylesheet(saved_size))
 
     if not os.path.exists(DB_PATH):
         QMessageBox.critical(

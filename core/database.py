@@ -836,6 +836,16 @@ class DB:
             c.execute(f"UPDATE {table} SET status=? WHERE {pk_col}=?", (status, pk_val))
             c.commit()
 
+    def update_sacrament_record(self, table, pk_col, pk_val, data):
+        """Update arbitrary columns on any sacrament row by its PK."""
+        if not data:
+            return
+        cols = ", ".join(f"{k}=?" for k in data)
+        vals = list(data.values()) + [pk_val]
+        with self._conn() as c:
+            c.execute(f"UPDATE {table} SET {cols} WHERE {pk_col}=?", vals)
+            c.commit()
+
     def delete_sacrament_record(self, table, pk_col, pk_val):
         """Permanently delete a sacrament row; intended for cancelled '예정' records."""
         with self._conn() as c:
@@ -1035,14 +1045,17 @@ class DB:
         with self._conn() as c:
             death_id = self._next_record_id(c, "death", "death_id")
             c.execute(
-                "INSERT INTO death (death_id, member_id, date_death, cemetery, last_rites_date)"
-                " VALUES (?,?,?,?,?)",
+                "INSERT INTO death"
+                " (death_id, member_id, date_death, cemetery, last_rites_date, family_name, address)"
+                " VALUES (?,?,?,?,?,?,?)",
                 (
                     death_id,
                     mid,
-                    data.get("date_death", "") or "",
-                    data.get("cemetery", "") or "",
-                    data.get("last_rites_date", "") or "",
+                    data.get("date_death") or None,
+                    data.get("cemetery") or None,
+                    data.get("last_rites_date") or None,
+                    data.get("family_name") or None,
+                    data.get("address") or None,
                 ),
             )
             c.execute(

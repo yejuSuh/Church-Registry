@@ -13,9 +13,9 @@ _STATUS_STYLE = {
 
 
 from forms.sacrament_forms import (
-    BaptismForm, WeddingForm, DeathForm,
+    BaptismForm, CommunionForm, WeddingForm, DeathForm,
 )
-from forms.intake_forms import InfantBaptismForm, ConfirmationIntakeForm
+from forms.intake_forms import InfantBaptismForm, ConfirmationIntakeForm, FirstCommunionForm
 
 
 class SacramentsTab(QWidget):
@@ -55,6 +55,13 @@ class SacramentsTab(QWidget):
         def open_dialog(cls):
             cls(self, self.db, self.pno, name, on_save=self.reload).exec()
 
+        def adp(rec):
+            """Return '성인' for adult sacrament records, '' otherwise (filtered out)."""
+            try:
+                return "성인" if rec["is_adp"] else ""
+            except (KeyError, TypeError):
+                return ""
+
         # 세례: full infant-baptism/first-communion intake form, or a quick
         # manual entry for simple/legacy records.
         baptism_menu = QMenu(self)
@@ -63,29 +70,35 @@ class SacramentsTab(QWidget):
 
         self._section(lay, "✝  세례", self.db.get_baptism_records(self.pno),
             lambda rec: [
-                ("세례번호",   fv(rec, "baptism_no")),
-                ("세례일",     fv(rec, "date")),
-                ("교구",       fv(rec, "diocese")),
-                ("세례 성당",  fv(rec, "parish")),
-                ("집전자",     fv(rec, "officiant_name")),
+                ("세례번호",      fv(rec, "baptism_no")),
+                ("구분",          adp(rec)),
+                ("세례일",        fv(rec, "date")),
+                ("교구",          fv(rec, "diocese")),
+                ("세례 성당",     fv(rec, "parish")),
+                ("집전자",        fv(rec, "officiant_name")),
                 ("집전자 세례명", fv(rec, "officiant_name_bapt")),
-                ("대부/대모",  fv(rec, "godparent_name_ko")),
+                ("대부/대모",     fv(rec, "godparent_name_ko")),
+                ("대부/대모 영문명", fv(rec, "godparent_name_en")),
                 ("대부/대모 세례명", fv(rec, "godparent_name_bapt")),
+                ("이름 (등록 외)", fv(rec, "person_name")),
             ],
             baptism_menu, status_info=("baptism", "id"))
 
         # 견진: one unified application form (성인/청소년 tabs inside)
         self._section(lay, "🕊  견진", self.db.get_confirmation_records(self.pno),
             lambda rec: [
-                ("견진번호",   fv(rec, "confirmation_no")),
-                ("견진명",     fv(rec, "confirmation_name")),
-                ("견진일",     fv(rec, "date")),
-                ("교구",       fv(rec, "diocese")),
-                ("견진 성당",  fv(rec, "parish")),
-                ("집전자",     fv(rec, "officiant_name")),
+                ("견진번호",      fv(rec, "confirmation_no")),
+                ("구분",          adp(rec)),
+                ("견진명",        fv(rec, "confirmation_name")),
+                ("견진일",        fv(rec, "date")),
+                ("교구",          fv(rec, "diocese")),
+                ("견진 성당",     fv(rec, "parish")),
+                ("집전자",        fv(rec, "officiant_name")),
                 ("집전자 세례명", fv(rec, "officiant_name_bapt")),
-                ("대부/대모",  fv(rec, "godparent_name_ko")),
+                ("대부/대모",     fv(rec, "godparent_name_ko")),
+                ("대부/대모 영문명", fv(rec, "godparent_name_en")),
                 ("대부/대모 세례명", fv(rec, "godparent_name_bapt")),
+                ("이름 (등록 외)", fv(rec, "person_name")),
             ],
             lambda: open_dialog(ConfirmationIntakeForm), status_info=("confirmation", "id"))
 
@@ -94,28 +107,37 @@ class SacramentsTab(QWidget):
 
         self._section(lay, "💒  혼인", self.db.get_wedding_records(self.pno),
             lambda rec: [
-                ("혼인번호", fv(rec, "wedding_no")),
-                ("혼인일",   fv(rec, "date")),
-                ("형태",     fv(rec, "wedding_type")),
-                ("형태 상세", fv(rec, "type_other")),
-                ("신랑",     fv(rec, "groom_name")),
-                ("신랑 세례명", fv(rec, "groom_name_bapt")),
-                ("신부",     fv(rec, "bride_name")),
-                ("신부 세례명", fv(rec, "bride_name_bapt")),
-                ("집전자",   fv(rec, "officiant_name")),
+                ("혼인번호",      fv(rec, "wedding_no")),
+                ("혼인일",        fv(rec, "date")),
+                ("형태",          fv(rec, "wedding_type")),
+                ("형태 상세",     fv(rec, "type_other")),
+                ("신랑",          fv(rec, "groom_name")),
+                ("신랑 영문명",   fv(rec, "groom_name_english")),
+                ("신랑 세례명",   fv(rec, "groom_name_bapt")),
+                ("신부",          fv(rec, "bride_name")),
+                ("신부 영문명",   fv(rec, "bride_name_english")),
+                ("신부 세례명",   fv(rec, "bride_name_bapt")),
+                ("집전자",        fv(rec, "officiant_name")),
                 ("집전자 세례명", fv(rec, "officiant_name_bapt")),
             ],
             wedding_menu, status_info=("wedding", "wedding_no"))
 
+        communion_menu = QMenu(self)
+        communion_menu.addAction("📋 첫영성체 신청서", lambda: open_dialog(FirstCommunionForm))
+        communion_menu.addAction("⚡ 빠른 입력 (간단 기록)", lambda: open_dialog(CommunionForm))
+
         self._section(lay, "🍞  첫영성체", self.db.get_communion_records(self.pno),
             lambda rec: [
-                ("첫영성체번호", fv(rec, "communion_no")),
-                ("첫영성체일",   fv(rec, "date")),
-                ("교구",         fv(rec, "diocese")),
-                ("성당",         fv(rec, "parish")),
-                ("집전자",       fv(rec, "officiant_name")),
+                ("첫영성체번호",  fv(rec, "communion_no")),
+                ("구분",          adp(rec)),
+                ("첫영성체일",    fv(rec, "date")),
+                ("교구",          fv(rec, "diocese")),
+                ("성당",          fv(rec, "parish")),
+                ("집전자",        fv(rec, "officiant_name")),
+                ("집전자 세례명", fv(rec, "officiant_name_bapt")),
+                ("이름 (등록 외)", fv(rec, "person_name")),
             ],
-            None, status_info=("communion", "communion_no"))
+            communion_menu, status_info=("communion", "communion_no"))
 
         death_menu = QMenu(self)
         death_menu.addAction("⚡ 빠른 입력", lambda: open_dialog(DeathForm))
@@ -124,7 +146,9 @@ class SacramentsTab(QWidget):
             lambda rec: [
                 ("사망일",   fv(rec, "date_death")),
                 ("장소",     fv(rec, "cemetery")),
-                ("병자성사",  fv(rec, "last_rites_date")),
+                ("병자성사", fv(rec, "last_rites_date")),
+                ("유족",     fv(rec, "family_name")),
+                ("주소",     fv(rec, "address")),
             ],
             death_menu)
 

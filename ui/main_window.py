@@ -7,7 +7,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QSettings
 from PyQt6.QtGui import QShortcut, QKeySequence
 
-from core.constants import APP_TITLE, C, DB_PATH
+from PyQt6.QtWidgets import QApplication
+from core.constants import APP_TITLE, BTN_RADIUS, C, DB_PATH, FONT_SIZE_DEFAULT, FONT_SIZE_MIN, FONT_SIZE_MAX, make_stylesheet
 from core.session import session
 from ui.ui_helpers import mk_btn
 from forms.parishioner_form import ParishionerForm
@@ -61,22 +62,17 @@ class MainWindow(QMainWindow):
             nb.setCursor(Qt.CursorShape.PointingHandCursor)
             sbl.addWidget(nb)
 
+        self.nav_sacrament = QPushButton("✚  성사 추가")
+        self.nav_sacrament.setObjectName("nav_btn")
+        self.nav_sacrament.setCursor(Qt.CursorShape.PointingHandCursor)
+        sbl.addWidget(self.nav_sacrament)
+        
         # visible to everyone; the view itself limits non-admins to their own account
         self.nav_users = QPushButton("👤  계정 관리")
         self.nav_users.setObjectName("nav_btn")
         self.nav_users.setCursor(Qt.CursorShape.PointingHandCursor)
         sbl.addWidget(self.nav_users)
 
-        sbl.addSpacing(8)
-        rule2 = QWidget(); rule2.setFixedHeight(1)
-        rule2.setStyleSheet(f"background:rgba(255,255,255,0.08);")
-        sbl.addWidget(rule2)
-        sbl.addSpacing(8)
-
-        self.nav_sacrament = QPushButton("✚  성사 추가")
-        self.nav_sacrament.setObjectName("nav_btn")
-        self.nav_sacrament.setCursor(Qt.CursorShape.PointingHandCursor)
-        sbl.addWidget(self.nav_sacrament)
 
         sbl.addSpacing(12)
         self._count_lbl = QLabel()
@@ -97,6 +93,33 @@ class MainWindow(QMainWindow):
         self.logout_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         sbl.addWidget(self.logout_btn)
         rl.addWidget(sb)
+ 
+        sbl.addSpacing(8)
+        rule2 = QWidget(); rule2.setFixedHeight(1)
+        rule2.setStyleSheet(f"background:rgba(255,255,255,0.08);")
+        sbl.addWidget(rule2)
+        sbl.addSpacing(8)
+
+        # font-size row
+        font_row = QWidget(); font_row.setStyleSheet("background:transparent;")
+        frl = QHBoxLayout(font_row); frl.setContentsMargins(8, 0, 8, 0); frl.setSpacing(4)
+        self._font_lbl = QLabel()
+        self._font_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._font_lbl.setStyleSheet("font-size:10px;color:#8EAFD4;background:transparent;")
+        self._font_dec = QPushButton("A−")
+        self._font_inc = QPushButton("A+")
+        for fb in (self._font_dec, self._font_inc):
+            fb.setObjectName("nav_btn")
+            fb.setCursor(Qt.CursorShape.PointingHandCursor)
+            fb.setFixedHeight(28)
+            fb.setStyleSheet(
+                "QPushButton{background:transparent;color:#8EAFD4;border:1px solid rgba(255,255,255,0.15);"
+                f"border-radius:{BTN_RADIUS};padding:2px 8px;font-size:11px;}}"
+                "QPushButton:hover{background:rgba(255,255,255,0.12);color:white;}"
+            )
+        frl.addWidget(self._font_dec, 1); frl.addWidget(self._font_lbl, 1); frl.addWidget(self._font_inc, 1)
+        sbl.addWidget(font_row)
+        sbl.addSpacing(4)
 
         # ── Main stack ───────────────────────────────────────────────────────
         self.stack = QStackedWidget(); rl.addWidget(self.stack, 1)
@@ -150,9 +173,25 @@ class MainWindow(QMainWindow):
         if geom:
             self.restoreGeometry(geom)
 
+        self._font_size = int(settings.value("ui/font_size", FONT_SIZE_DEFAULT))
+        self._update_font_label()
+        self._font_dec.clicked.connect(lambda: self._change_font(-1))
+        self._font_inc.clicked.connect(lambda: self._change_font(+1))
+
         self._reload()
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+
+    def _update_font_label(self):
+        self._font_lbl.setText(f"{self._font_size}px")
+        self._font_dec.setEnabled(self._font_size > FONT_SIZE_MIN)
+        self._font_inc.setEnabled(self._font_size < FONT_SIZE_MAX)
+
+    def _change_font(self, delta):
+        self._font_size = max(FONT_SIZE_MIN, min(FONT_SIZE_MAX, self._font_size + delta))
+        QApplication.instance().setStyleSheet(make_stylesheet(self._font_size))
+        QSettings("BostonKoreanCatholic", "ChurchRegistry").setValue("ui/font_size", self._font_size)
+        self._update_font_label()
 
     def _refresh_user_lbl(self):
         self._user_lbl.setText(f"👤 {session.name} ({session.baptism_name})")
