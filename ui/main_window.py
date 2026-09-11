@@ -17,6 +17,7 @@ from ui.list_view import ListView
 from ui.stats_view import StatsView
 from ui.user_mgmt_view import UserMgmtView
 from ui.sacrament_entry_view import SacramentEntryView
+from ui.certificate_view import CertificateView
 
 
 class MainWindow(QMainWindow):
@@ -66,7 +67,12 @@ class MainWindow(QMainWindow):
         self.nav_sacrament.setObjectName("nav_btn")
         self.nav_sacrament.setCursor(Qt.CursorShape.PointingHandCursor)
         sbl.addWidget(self.nav_sacrament)
-        
+
+        self.nav_certificate = QPushButton("🖨  증명서 출력")
+        self.nav_certificate.setObjectName("nav_btn")
+        self.nav_certificate.setCursor(Qt.CursorShape.PointingHandCursor)
+        sbl.addWidget(self.nav_certificate)
+
         # visible to everyone; the view itself limits non-admins to their own account
         self.nav_users = QPushButton("👤  계정 관리")
         self.nav_users.setObjectName("nav_btn")
@@ -147,11 +153,16 @@ class MainWindow(QMainWindow):
         self.sacrament_entry_view = SacramentEntryView(db)
         self.stack.addWidget(self.sacrament_entry_view)
 
+        # index 4 — certificate printing (placeholder)
+        self.certificate_view = CertificateView(db)
+        self.stack.addWidget(self.certificate_view)
+
         # ── Signals ──────────────────────────────────────────────────────────
         self.nav_list.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         self.nav_stats.clicked.connect(lambda: self.stack.setCurrentIndex(1))
         self.nav_users.clicked.connect(lambda: self._open_user_mgmt())
         self.nav_sacrament.clicked.connect(lambda: self.stack.setCurrentIndex(3))
+        self.nav_certificate.clicked.connect(lambda: self.stack.setCurrentIndex(4))
         self.list_view.add_btn.clicked.connect(self._add)
         self.list_view.row_selected.connect(self.detail_view.load)
         self.detail_view.edit_sig.connect(self._edit)

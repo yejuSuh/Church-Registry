@@ -46,7 +46,7 @@ class ParentBlock(QWidget):
 
         row = QWidget()
         rl = QHBoxLayout(row); rl.setContentsMargins(0, 0, 0, 0); rl.setSpacing(10)
-        self.bdate_e = mk_date(); rl.addWidget(vbox_field("세례일", self.bdate_e, C['card']), 1)
+        self.bdate_e = mk_date(); rl.addWidget(vbox_field("세례일(MM/DD/YYYY)", self.bdate_e, C['card']), 1)
         self.dioc_e = mk_entry(); rl.addWidget(vbox_field("세례 교구", self.dioc_e, C['card']), 1)
         self.par_e = mk_entry(); rl.addWidget(vbox_field("세례 성당", self.par_e, C['card']), 1)
         lay.addWidget(row)
@@ -93,7 +93,7 @@ class PriorBaptismBlock(QWidget):
             g.addWidget(vbox_field(lbl_txt, e, C['card']), row, col, 1, span)
             return e
 
-        self.date_e     = _cell("세례일자",        "date",                0, 0, star=True, kind="date")
+        self.date_e     = _cell("세례일(MM/DD/YYYY)",        "date",                0, 0, star=True, kind="date")
         self.dioc_e     = _cell("세례교구",        "diocese",             0, 1)
         self.par_e      = _cell("세례본당",        "parish",              0, 2)
         self.off_e      = _cell("집전자",          "officiant_name",      1, 0)
@@ -197,7 +197,7 @@ class ConfirmationIntakeForm(_IntakeDialog):
         self.grid.addWidget(self.sponsor, r, 0, 1, 4); r += 1
 
         self.hdr("🕊  견진 정보", r); r += 1
-        self.date_e  = self.add("성사 예정일 *", mk_date(), r, 0)
+        self.date_e  = self.add("성사 예정일(MM/DD/YYYY) *", mk_date(), r, 0)
         self.off_e   = self.add("집전사제/(대)주교 *",         mk_entry(), r, 1, 2)
         self.cname_e = self.add("견진명",                      mk_entry(), r, 3); r += 1
 
@@ -412,7 +412,7 @@ class InfantBaptismForm(_IntakeDialog):
         self.grid.addWidget(member_summary(self.member), r, 0, 1, 4); r += 1
 
         self.hdr("✝  세례 정보", r); r += 1
-        self.date_e   = self.add("세례일 (예정/실시)", mk_date(), r, 0, 2)
+        self.date_e   = self.add("세례일(MM/DD/YYYY)", mk_date(), r, 0, 2)
         self.off_e    = self.add("집전자/부제",        mk_entry(), r, 2)
         self.off_bn_e = self.add("집전자 세례명",      mk_entry(), r, 3); r += 1
         self.bname_e  = self.add("세례명", mk_entry(fv(self.member, "baptismal_name")), r, 0); r += 1
@@ -434,7 +434,7 @@ class InfantBaptismForm(_IntakeDialog):
         self.comm_group = QWidget()
         cl = QHBoxLayout(self.comm_group); cl.setContentsMargins(0, 0, 0, 0); cl.setSpacing(10)
         self.comm_date_e = mk_date()
-        cl.addWidget(vbox_field("첫영성체일 (예정/실시)", self.comm_date_e, C['card']), 1)
+        cl.addWidget(vbox_field("첫영성체일(MM/DD/YYYY)", self.comm_date_e, C['card']), 1)
         self.comm_cb.toggled.connect(self.comm_group.setVisible)
         self.comm_group.setVisible(False)
         self.grid.addWidget(self.comm_group, r, 0, 1, 4); r += 1
@@ -497,7 +497,7 @@ class FirstCommunionForm(_IntakeDialog):
 
         # ── 첫영성체 정보 ─────────────────────────────────────────────────────
         self.hdr("🍞  첫영성체 정보", r); r += 1
-        self.date_e   = self.add("성사 예정일", mk_date(), r, 0, 2)
+        self.date_e   = self.add("성사 예정일(MM/DD/YYYY)", mk_date(), r, 0, 2)
         self.off_e    = self.add("집전자",      mk_entry(), r, 2)
         self.off_bn_e = self.add("집전자 세례명", mk_entry(), r, 3); r += 1
 

@@ -101,7 +101,7 @@ class BaptismForm(QDialog):
         member = db.get(pno)
         fv_ = lambda k: str(member[k]).strip() if member and member[k] else ""
 
-        self.date_e   = add("세례일",      mk_date(), 0, 0)
+        self.date_e   = add("세례일(MM/DD/YYYY)",      mk_date(), 0, 0)
         self.dioc_e   = add("교구",        mk_entry(), 0, 1)
         self.church_e = add("세례 성당",   mk_entry(), 0, 2)
         self.bname_e  = add("세례명",      mk_entry(fv_("baptismal_name")), 1, 0)
@@ -151,7 +151,7 @@ class ConfirmationForm(QDialog):
         def add(lbl, w, r, c, span=1):
             g.addWidget(vbox_field(lbl, w, C['card']), r, c, 1, span); return w
 
-        self.date_e   = add("견진일",      mk_date(), 0, 0)
+        self.date_e   = add("견진일(MM/DD/YYYY)",      mk_date(), 0, 0)
         self.dioc_e   = add("교구",        mk_entry(), 0, 1)
         self.church_e = add("견진 성당",   mk_entry(), 0, 2)
         self.off_e    = add("집전자",      mk_entry(), 1, 0)
@@ -197,7 +197,7 @@ class CommunionForm(QDialog):
         def add(lbl, w, r, c, span=1):
             g.addWidget(vbox_field(lbl, w, C['card']), r, c, 1, span); return w
 
-        self.date_e   = add("첫영성체일", mk_date(), 0, 0)
+        self.date_e   = add("첫영성체일(MM/DD/YYYY)", mk_date(), 0, 0)
         self.church_e = add("성당",      mk_entry(), 0, 1, 2)
         self.dioc_e   = add("교구",      mk_entry(), 1, 0)
         self.off_e    = add("집전자",    mk_entry(), 1, 1)
@@ -242,7 +242,7 @@ class WeddingForm(QDialog):
         def add(lbl, w, r, c, span=1):
             g.addWidget(vbox_field(lbl, w, C['card']), r, c, 1, span); return w
 
-        self.date_e  = add("혼인일", mk_date(), 0, 0)
+        self.date_e  = add("혼인일(MM/DD/YYYY)", mk_date(), 0, 0)
         self.type_cb = add("형태", mk_combo(["성사혼", "관면혼", "단순유효화혼", "바오로특전혼", "근본유효화혼", "기타"]), 0, 1, 2)
         self.role_cb = add("역할", mk_combo(["신랑", "신부"]), 1, 0)
         self.off_e   = add("집전자", mk_entry(), 1, 1, 3)
@@ -332,15 +332,15 @@ class DeathForm(QDialog):
         g.addWidget(shdr("✟  고인 정보"), r, 0, 1, 4); r += 1
         self.name_e    = add("이름",    mk_entry(fv_("name")),            r, 0)
         self.bname_e   = add("세례명",  mk_entry(fv_("baptismal_name")),  r, 1)
-        self.birth_e   = add("생년월일", mk_entry(fv_("birth_date")),     r, 2); r += 1
+        self.birth_e   = add("생년월일(MM/DD/YYYY)", mk_entry(fv_("birth_date")),     r, 2); r += 1
         self.cur_addr_e = add("현 주소", mk_entry(fv_("address")),        r, 0, 4); r += 1
 
         # ── 사망 정보 ────────────────────────────────────────────────────────
         g.addWidget(shdr("📋  사망 정보"), r, 0, 1, 4); r += 1
-        self.date_e   = add("사망일",       mk_date(), r, 0)
+        self.date_e   = add("사망일(MM/DD/YYYY)",       mk_date(), r, 0)
         self.family_e = add("유족 (연락 가족)", mk_entry(), r, 1, 2); r += 1
         self.cemetery_e = add("묘지 주소",  mk_entry(), r, 0, 4); r += 1
-        self.rites_e  = add("병자성사일",   mk_date(), r, 0, 2); r += 1
+        self.rites_e  = add("병자성사일(MM/DD/YYYY)",   mk_date(), r, 0, 2); r += 1
 
         g.setRowStretch(r, 1)
 
@@ -392,7 +392,7 @@ class MoveInForm(QDialog):
         def add(lbl, w, r, c, span=1):
             g.addWidget(vbox_field(lbl, w, C['card']), r, c, 1, span); return w
 
-        self.date_e    = add("전입일", mk_date(), 0, 0)
+        self.date_e    = add("전입일(MM/DD/YYYY)", mk_date(), 0, 0)
         self.diocese_e = add("이전 교구",           mk_entry(), 0, 1)
         self.parish_e  = add("이전 성당",           mk_entry(), 0, 2)
         self.addr_e    = add("이전 성당 주소",       mk_entry(), 1, 0, 3)
@@ -438,7 +438,7 @@ class MoveOutForm(QDialog):
         def add(lbl, w, r, c, span=1):
             g.addWidget(vbox_field(lbl, w, C['card']), r, c, 1, span); return w
 
-        self.date_e    = add("전출일", mk_date(), 0, 0)
+        self.date_e    = add("전출일(MM/DD/YYYY)", mk_date(), 0, 0)
         self.diocese_e = add("새 교구",             mk_entry(), 0, 1)
         self.parish_e  = add("새 성당",             mk_entry(), 0, 2)
         self.addr_e    = add("새 성당 주소",         mk_entry(), 1, 0, 3)
