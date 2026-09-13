@@ -12,13 +12,6 @@ if __name__ == "__main__":
         "ui/font_size", FONT_SIZE_DEFAULT))
     app.setStyleSheet(make_stylesheet(saved_size))
 
-    if not os.path.exists(DB_PATH):
-        QMessageBox.critical(
-            None, "ERROR",
-            f"데이터베이스 파일을 찾을 수 없습니다.\n{DB_PATH}\n해당 경로에 파일이 존재하는지 확인하세요.",
-        )
-        sys.exit(1)
-
     db = DB(DB_PATH)
 
     # Login → main window loop: logging out closes the main window and brings

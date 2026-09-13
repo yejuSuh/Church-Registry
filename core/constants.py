@@ -13,7 +13,7 @@ else:
     _DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Database path
-DB_PATH = os.path.join(_DIR, "parish_test.db")
+DB_PATH = os.path.join(_DIR, "church_registry.db")
 _ARROW_SVG   = os.path.join(_DIR, "assets", "arrow_down.svg").replace("\\", "/")
 
 # ── Design tokens ─────────────────────────────────────────────────────────────

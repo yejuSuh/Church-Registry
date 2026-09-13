@@ -17,6 +17,83 @@ class DB:
     def _migrate_schema(self):
         """Idempotently apply schema changes; safe to run on every startup."""
         with self._conn() as c:
+            # Core tables — created here for fresh installs; ALTER TABLE paths
+            # below handle upgrades on existing databases.
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS member (
+                    member_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                    reg_area       TEXT NOT NULL DEFAULT '',
+                    name_ko        TEXT NOT NULL DEFAULT '',
+                    name_en        TEXT,
+                    baptismal_name TEXT,
+                    birth_date     TEXT,
+                    sex            TEXT CHECK(sex IN ('M','F')),
+                    address        TEXT,
+                    postal_code    TEXT,
+                    phone          TEXT,
+                    email          TEXT,
+                    occupation     TEXT,
+                    notes          TEXT,
+                    reg_no         TEXT,
+                    created_at     TEXT
+                )
+            """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_member_name_ko ON member(name_ko)")
+            c.execute("""
+                CREATE TRIGGER IF NOT EXISTS trg_member_created_at
+                AFTER INSERT ON member WHEN NEW.created_at IS NULL
+                BEGIN UPDATE member SET created_at = strftime('%m/%d/%Y','now')
+                      WHERE rowid = NEW.rowid; END
+            """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS member_status (
+                    member_id  INTEGER PRIMARY KEY
+                               REFERENCES member(member_id) ON DELETE CASCADE,
+                    status     TEXT NOT NULL DEFAULT 'active'
+                               CHECK(status IN
+                                   ('active','inactive','deceased',
+                                    'pre-parishioner','movedout')),
+                    created_at TEXT
+                )
+            """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS wedding (
+                    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                    wedding_no          TEXT UNIQUE,
+                    date                TEXT,
+                    wedding_type        TEXT,
+                    type_other          TEXT,
+                    officiant_name      TEXT,
+                    officiant_name_bapt TEXT,
+                    groom_id            INTEGER REFERENCES member(member_id) ON DELETE SET NULL,
+                    groom_name          TEXT,
+                    groom_name_english  TEXT,
+                    groom_name_bapt     TEXT,
+                    bride_id            INTEGER REFERENCES member(member_id) ON DELETE SET NULL,
+                    bride_name          TEXT,
+                    bride_name_english  TEXT,
+                    bride_name_bapt     TEXT,
+                    status              TEXT,
+                    created_at          TEXT
+                )
+            """)
+            c.execute("CREATE INDEX IF NOT EXISTS idx_wedding_groom ON wedding(groom_id)")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_wedding_bride ON wedding(bride_id)")
+            c.execute("""
+                CREATE TRIGGER IF NOT EXISTS trg_wedding_created_at
+                AFTER INSERT ON wedding WHEN NEW.created_at IS NULL
+                BEGIN UPDATE wedding SET created_at = strftime('%m/%d/%Y','now')
+                      WHERE rowid = NEW.rowid; END
+            """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS sacrament_counter (
+                    sacrament_type TEXT NOT NULL,
+                    year           INTEGER NOT NULL,
+                    last_count     INTEGER NOT NULL DEFAULT 0,
+                    created_at     TEXT,
+                    PRIMARY KEY (sacrament_type, year)
+                )
+            """)
             c.execute("""
                 CREATE TABLE IF NOT EXISTS household (
                     household_id   INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -224,7 +301,22 @@ class DB:
                 ),
             ]:
                 cols = [r[1] for r in c.execute(f"PRAGMA table_info({tbl})").fetchall()]
-                if cols and "id" not in cols:
+                if not cols:
+                    # Fresh install — create table with full current schema.
+                    c.execute(f"""
+                        CREATE TABLE IF NOT EXISTS {tbl} (
+                            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                            {id_col}  TEXT UNIQUE,
+                            {extra_schema}
+                        )
+                    """)
+                    for idx_sql in indexes:
+                        c.execute(idx_sql)
+                    c.execute(
+                        f"CREATE TRIGGER IF NOT EXISTS trg_{tbl}_created_at {trigger_body}"
+                    )
+                elif "id" not in cols:
+                    # Existing table without surrogate PK — rebuild.
                     c.execute(f"""
                         CREATE TABLE {tbl}_new (
                             id        INTEGER PRIMARY KEY AUTOINCREMENT,

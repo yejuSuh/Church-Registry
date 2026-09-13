@@ -1,7 +1,7 @@
-# Database files — production data should never be committed
+# Database files — production data must never be committed
 *.sqlite
-# Allow the bundled test database to be tracked
-!test_db.sqlite
+*.db
+*.db.bak
 
 # Python
 __pycache__/
@@ -14,5 +14,4 @@ __pycache__/
 todo
 *.pdf
 *.md
-parish_test.db
 db_migration.txt
