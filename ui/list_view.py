@@ -193,9 +193,6 @@ class ListView(QWidget):
             for j, val in enumerate(vals):
                 it = QTableWidgetItem(val)
                 it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                if j == 0:
-                    # store the integer member_id so _sel() can emit it
-                    it.setData(Qt.ItemDataRole.UserRole, str(r["member_id"]))
                 if is_inactive:
                     it.setForeground(QColor(C["orange"]))
                 self.table.setItem(i, j, it)
@@ -206,11 +203,8 @@ class ListView(QWidget):
 
     def _sel(self):
         row = self.table.currentRow()
-        if row >= 0:
-            item = self.table.item(row, 0)
-            if item:
-                mid = item.data(Qt.ItemDataRole.UserRole)
-                self.row_selected.emit(mid if mid else item.text())
+        if 0 <= row < len(self._rows):
+            self.row_selected.emit(str(self._rows[row]["member_id"]))
 
     # ── export mode ───────────────────────────────────────────────────────────
 

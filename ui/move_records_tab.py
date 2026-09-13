@@ -9,10 +9,11 @@ from forms.sacrament_forms import MoveInForm, MoveOutForm
 
 
 class MoveRecordsTab(QWidget):
-    def __init__(self, db, pno):
+    def __init__(self, db, pno, on_movedout=None):
         super().__init__()
         self.db = db; self.pno = pno
         self._name = ""
+        self._on_movedout = on_movedout
         outer = QVBoxLayout(self); outer.setContentsMargins(0, 0, 0, 0); outer.setSpacing(0)
         self._scroll = QScrollArea(); self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -34,7 +35,14 @@ class MoveRecordsTab(QWidget):
         self._scroll.setWidget(body)
 
     def _open(self, cls):
-        cls(self, self.db, self.pno, self._name, on_save=self.reload).exec()
+        if cls is MoveOutForm:
+            def on_saved():
+                self.reload()
+                if self._on_movedout:
+                    self._on_movedout()
+            cls(self, self.db, self.pno, self._name, on_save=on_saved).exec()
+        else:
+            cls(self, self.db, self.pno, self._name, on_save=self.reload).exec()
 
     def _build_movein(self, lay):
         hdr = QWidget()

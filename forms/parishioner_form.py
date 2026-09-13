@@ -76,7 +76,7 @@ class ParishionerForm(QDialog):
 
         self.birth_e = mk_entry(ev("birth_date"))
         self.birth_e.setPlaceholderText("YYYY/MM/DD")
-        grid.addWidget(vbox_field("생년월일 *", self.birth_e, C['card']), r, 0, 1, 2); r += 1
+        grid.addWidget(vbox_field("생년월일(MM/DD/YYYY) *", self.birth_e, C['card']), r, 0, 1, 2); r += 1
 
         self.addr_e   = add("주소 *", mk_entry(ev("address")), r, 0, 3)
         self.postal_e = add("우편번호", mk_entry(ev("postal_code")), r, 3); r += 1

@@ -15,8 +15,9 @@ from forms.household_dialog import HouseholdDialog
 class DetailPanel(QWidget):
     """Right-hand panel showing a single member's info, sacraments, move records, family, and household tabs."""
 
-    edit_sig   = pyqtSignal(str)
-    delete_sig = pyqtSignal(str)
+    edit_sig      = pyqtSignal(str)
+    delete_sig    = pyqtSignal(str)
+    movedout_sig  = pyqtSignal(str)
 
     def __init__(self, db):
         super().__init__()
@@ -130,7 +131,7 @@ class DetailPanel(QWidget):
         r2("교적번호", v("display_id"),         "세례명",  v("baptismal_name"))
         r2("세대주",   v("head_of_household"), "관계",    v("relation"))
         r2("구역",     v("district"),           "성별",    {"M": "남", "F": "여"}.get(fv(p, "sex"), "—"))
-        r2("생년월일", v("birth_date"))
+        r2("생년월일(MM/DD/YYYY)", v("birth_date"))
         r2("주소",     v("address"),            "우편번호", v("postal_code"))
         r2("전화",     v("phone"),              "이메일",  v("email"))
         r2("직업",     v("occupation"))
@@ -145,7 +146,7 @@ class DetailPanel(QWidget):
         sh("💰  교무금")
         dues_label = "납부" if v("dues_paying") == "1" else "미납"
         r2("납부 여부", dues_label, "월 교무금", v("monthly_dues"))
-        r2("시작일",    v("dues_start"),  "최근 납부", v("dues_last_paid"))
+        r2("시작일(MM/DD/YYYY)",    v("dues_start"),  "최근 납부", v("dues_last_paid"))
 
         if v("notes") != "—":
             sh("📝  메모")
@@ -183,7 +184,10 @@ class DetailPanel(QWidget):
         tabs = QTabWidget()
         tabs.addTab(sc, "기본 정보")
         tabs.addTab(SacramentsTab(self.db, pno), "성사 기록")
-        tabs.addTab(MoveRecordsTab(self.db, pno), "이동 기록")
+        tabs.addTab(
+            MoveRecordsTab(self.db, pno, on_movedout=lambda: (self.movedout_sig.emit(pno), self.show_empty())),
+            "이동 기록"
+        )
         tabs.setCurrentIndex(self._current_tab)
         tabs.currentChanged.connect(lambda i: setattr(self, '_current_tab', i))
         self._l.addWidget(tabs, 1)

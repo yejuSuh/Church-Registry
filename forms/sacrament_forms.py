@@ -461,6 +461,7 @@ class MoveOutForm(QDialog):
                 dest_parish=ge(self.parish_e),
                 dest_address=ge(self.addr_e) or None,
             ))
+            self.db.set_movedout(self.pno)
             if self.on_save: self.on_save()
             self.accept()
         except Exception as e:

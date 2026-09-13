@@ -67,6 +67,26 @@ class DB:
             if wedding_cols and "type_other" not in wedding_cols:
                 c.execute("ALTER TABLE wedding ADD COLUMN type_other TEXT")
 
+            # Expand member_status CHECK to include 'movedout'
+            ms_sql = c.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='member_status'"
+            ).fetchone()
+            if ms_sql and "movedout" not in ms_sql[0]:
+                c.execute("""
+                    CREATE TABLE member_status_new (
+                        member_id  INTEGER PRIMARY KEY
+                                   REFERENCES member(member_id) ON DELETE CASCADE,
+                        status     TEXT NOT NULL DEFAULT 'active'
+                                   CHECK(status IN
+                                       ('active','inactive','deceased',
+                                        'pre-parishioner','movedout')),
+                        created_at TEXT
+                    )
+                """)
+                c.execute("INSERT INTO member_status_new SELECT * FROM member_status")
+                c.execute("DROP TABLE member_status")
+                c.execute("ALTER TABLE member_status_new RENAME TO member_status")
+
             fam_cols = [r[1] for r in c.execute("PRAGMA table_info(family)").fetchall()]
             if fam_cols and "relation_other" not in fam_cols:
                 c.execute("ALTER TABLE family ADD COLUMN relation_other TEXT")
@@ -439,8 +459,11 @@ class DB:
 
     def search(self, q="", area=""):
         """Search active parishioners by name/baptismal name; optionally filter by area code."""
-        # Only show real parishioners (numeric reg_area), not placeholder-only members
-        sql = self._MEMBER_SELECT + " WHERE m.reg_area GLOB '[0-9]*'"
+        # Only show real parishioners (numeric reg_area), not placeholder-only members.
+        # Movedout members are excluded here — they are managed in their own view.
+        sql = (self._MEMBER_SELECT
+               + " WHERE m.reg_area GLOB '[0-9]*'"
+               + " AND COALESCE(ms.status,'active') != 'movedout'")
         p = []
         if q:
             sql += (
@@ -680,6 +703,42 @@ class DB:
                     ),
                 )
             c.commit()
+
+    def set_movedout(self, pno):
+        """Mark a member as moved out; they are hidden from the main list but data is preserved."""
+        with self._conn() as c:
+            c.execute(
+                "INSERT INTO member_status (member_id, status) VALUES (?, 'movedout')"
+                " ON CONFLICT(member_id) DO UPDATE SET status='movedout'",
+                (int(pno),),
+            )
+            c.commit()
+
+    def reactivate_member(self, pno):
+        """Restore a movedout member to active status."""
+        with self._conn() as c:
+            c.execute(
+                "INSERT INTO member_status (member_id, status) VALUES (?, 'active')"
+                " ON CONFLICT(member_id) DO UPDATE SET status='active'",
+                (int(pno),),
+            )
+            c.commit()
+
+    def search_movedout(self, q="", area=""):
+        """Return all members with status='movedout', optionally filtered by name/area."""
+        sql = (self._MEMBER_SELECT
+               + " WHERE m.reg_area GLOB '[0-9]*' AND ms.status='movedout'")
+        p = []
+        if q:
+            sql += (" AND (TRIM(m.name_ko) LIKE ? OR TRIM(m.baptismal_name) LIKE ?"
+                    " OR TRIM(mh.name_ko) LIKE ?)")
+            p += [f"%{q}%"] * 3
+        if area:
+            sql += " AND m.reg_area=?"
+            p.append(area)
+        sql += " ORDER BY m.reg_area, m.member_id"
+        with self._conn() as c:
+            return c.execute(sql, p).fetchall()
 
     def hard_delete(self, pno):
         """Permanently delete a member and all ON DELETE CASCADE-linked rows."""

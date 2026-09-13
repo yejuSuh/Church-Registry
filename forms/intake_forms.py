@@ -522,7 +522,7 @@ class FirstCommunionForm(_IntakeDialog):
 
         self._m_name_e  = _cell("이름",     "name",           0, 0)
         self._m_bname_e = _cell("세례명",   "baptismal_name", 0, 1)
-        self._m_birth_e = _cell("생년월일", "birth_date",     0, 2)
+        self._m_birth_e = _cell("생년월일(MM/DD/YYYY)", "birth_date",     0, 2)
         # 교적번호 is immutable — keep it read-only
         reg_e = mk_entry(fv(m, "display_id")); reg_e.setReadOnly(True)
         reg_e.setStyleSheet(f"background:{C['header']};color:{C['text']};")

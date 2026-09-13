@@ -18,6 +18,7 @@ from ui.stats_view import StatsView
 from ui.user_mgmt_view import UserMgmtView
 from ui.sacrament_entry_view import SacramentEntryView
 from ui.certificate_view import CertificateView
+from ui.movedout_view import MovedOutView
 
 
 class MainWindow(QMainWindow):
@@ -67,6 +68,11 @@ class MainWindow(QMainWindow):
         self.nav_sacrament.setObjectName("nav_btn")
         self.nav_sacrament.setCursor(Qt.CursorShape.PointingHandCursor)
         sbl.addWidget(self.nav_sacrament)
+
+        self.nav_movedout = QPushButton("📤  전출 교적")
+        self.nav_movedout.setObjectName("nav_btn")
+        self.nav_movedout.setCursor(Qt.CursorShape.PointingHandCursor)
+        sbl.addWidget(self.nav_movedout)
 
         self.nav_certificate = QPushButton("🖨  증명서 출력")
         self.nav_certificate.setObjectName("nav_btn")
@@ -153,7 +159,11 @@ class MainWindow(QMainWindow):
         self.sacrament_entry_view = SacramentEntryView(db)
         self.stack.addWidget(self.sacrament_entry_view)
 
-        # index 4 — certificate printing (placeholder)
+        # index 4 — moved-out member registry
+        self.movedout_view = MovedOutView(db)
+        self.stack.addWidget(self.movedout_view)
+
+        # index 5 — certificate printing (placeholder)
         self.certificate_view = CertificateView(db)
         self.stack.addWidget(self.certificate_view)
 
@@ -162,7 +172,10 @@ class MainWindow(QMainWindow):
         self.nav_stats.clicked.connect(lambda: self.stack.setCurrentIndex(1))
         self.nav_users.clicked.connect(lambda: self._open_user_mgmt())
         self.nav_sacrament.clicked.connect(lambda: self.stack.setCurrentIndex(3))
-        self.nav_certificate.clicked.connect(lambda: self.stack.setCurrentIndex(4))
+        self.nav_movedout.clicked.connect(lambda: self.stack.setCurrentIndex(4))
+        self.nav_certificate.clicked.connect(lambda: self.stack.setCurrentIndex(5))
+        self.detail_view.movedout_sig.connect(self._on_movedout)
+        self.movedout_view.reactivated.connect(self._reload)
         self.list_view.add_btn.clicked.connect(self._add)
         self.list_view.row_selected.connect(self.detail_view.load)
         self.detail_view.edit_sig.connect(self._edit)
@@ -219,6 +232,11 @@ class MainWindow(QMainWindow):
     def _open_user_mgmt(self):
         self.user_mgmt_view._load()   # refresh data each time
         self.stack.setCurrentIndex(2)
+
+    def _on_movedout(self, pno):
+        self._reload()
+        self.stack.setCurrentIndex(4)   # switch to movedout view
+        self.movedout_view._load()
 
     def _reload(self):
         self.list_view.load()
